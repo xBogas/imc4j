@@ -494,6 +494,35 @@ public class SoiExecutive extends TimedFSM {
 	}
 
 	/**
+	 * Updates the communication timer and evaluates global transition guards.
+	 * <p>
+	 * This method checks for safety-critical conditions (communication timeouts)
+	 * and mission progress (reaching a waypoint) that trigger a state change
+	 * regardless of the current FSM activity.
+	 *
+	 * @return The next {@link FSMState} to transition to, or {@code null} if no
+	 * transition is required.
+	 */
+	private FSMState checkTransitions() {
+		secs_no_comms++;
+
+		if (offlineForTooLong()) {
+			String err = "Offline for too long (" + secs_no_comms + ")";
+			printError(err);
+			txtMessages.add("ERROR: " + err);
+			return this::surface_to_report_error;
+		}
+
+		if (arrivedXY()) {
+			print("Arrived at waypoint " + wpt_index);
+			wpt_index++;
+			return this::start_waiting;
+		}
+
+		return null;
+	}
+
+	/**
 	 * Execute the next waypoint
 	 */
 	public FSMState exec(FollowRefState state) {
@@ -572,19 +601,10 @@ public class SoiExecutive extends TimedFSM {
 		printFSMState();
 		setDepth(maxDepth);
 
-		secs_no_comms++;
-		if (offlineForTooLong()) {
-			String err = "Offline for too long (" + secs_no_comms + ")";
-			printError(err);
-			txtMessages.add("ERROR: " + err);
-			return this::surface_to_report_error;
-		}
+		FSMState next = checkTransitions();
+		if (next != null)
+			return next;
 
-		if (arrivedXY()) {
-			print("Arrived at waypoint " + wpt_index);
-			wpt_index++;
-			return this::start_waiting;
-		}
 		try {
 			double[] cur_pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
 			double[] target_pos = new double[] { plan.waypoint(wpt_index).getLatitude(),
@@ -622,19 +642,9 @@ public class SoiExecutive extends TimedFSM {
 
 		setDepth(target_depth);
 
-		secs_no_comms++;
-		if (offlineForTooLong()) {
-			String err = "Offline for too long (" + secs_no_comms + ")";
-			printError(err);
-			txtMessages.add("ERROR: " + err);
-			return this::surface_to_report_error;
-		}
-
-		if (arrivedXY()) {
-			print("Arrived at waypoint " + wpt_index);
-			wpt_index++;
-			return this::start_waiting;
-		}
+		FSMState next = checkTransitions();
+		if (next != null)
+			return next;
 
 		if (target_depth > 0 && arrivedZ() || !isUnderwater()) {
 			if (secs_no_comms / 60 >= minsOff) {
@@ -696,19 +706,10 @@ public class SoiExecutive extends TimedFSM {
 		EstimatedState state = get(EstimatedState.class);
 		double[] pos = WGS84Utilities.toLatLonDepth(state);
 
-		secs_no_comms++;
-		if (offlineForTooLong()) {
-			String err = "Offline for too long (" + secs_no_comms + ")";
-			printError(err);
-			txtMessages.add("ERROR: " + err);
-			return this::surface_to_report_error;
-		}
+		FSMState next = checkTransitions();
+		if (next != null)
+			return next;
 
-		if (arrivedXY()) {
-			print("Arrived at waypoint " + wpt_index);
-			wpt_index++;
-			return this::start_waiting;
-		}
 		double[] dest = getDestinationDegs();
 		// Difference between current and destination location
 		double[] diff = WGS84Utilities.WGS84displacement(pos[0], pos[1], 0, dest[0], dest[1], 0);
@@ -737,19 +738,9 @@ public class SoiExecutive extends TimedFSM {
 		printFSMState();
 		double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
 
-		secs_no_comms++;
-		if (offlineForTooLong()) {
-			String err = "Offline for too long (" + secs_no_comms + ")";
-			printError(err);
-			txtMessages.add("ERROR: " + err);
-			return this::surface_to_report_error;
-		}
-
-		if (arrivedXY()) {
-			print("Arrived at waypoint " + wpt_index);
-			wpt_index++;
-			return this::start_waiting;
-		}
+		FSMState next = checkTransitions();
+		if (next != null)
+			return next;
 
 		setDepth(maxDepth);
 		if (descRpm > 0)
