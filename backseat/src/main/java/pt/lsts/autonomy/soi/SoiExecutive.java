@@ -270,7 +270,7 @@ public class SoiExecutive extends TimedFSM {
 					try {
 						PojoConfig.setProperty(this, key, cmd.settings.get(key));
 					} catch (Exception e) {
-						e.printStackTrace();
+						printException(e);
 					}
 				}
 				reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
@@ -288,7 +288,7 @@ public class SoiExecutive extends TimedFSM {
 				print("Config saved to " + CONFIG_FILE.getAbsolutePath());
 
 			} catch (Exception e) {
-				e.printStackTrace();
+				printException(e);
 			}
 
 			break;
@@ -341,7 +341,7 @@ public class SoiExecutive extends TimedFSM {
 		try {
 			send(reply);
 		} catch (Exception e) {
-			e.printStackTrace();
+			printException(e);
 		}
 		
 		// If message is too large to send over Iridium, try to split its settings
@@ -377,7 +377,7 @@ public class SoiExecutive extends TimedFSM {
 		try {
 			clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());
 		} catch (Exception e) {
-			print("Error while splitting settings " + e.getMessage());
+			printException(e);
 			return null;
 		}
 		clone.settings = new TupleList();
@@ -392,7 +392,7 @@ public class SoiExecutive extends TimedFSM {
 				try {
 					clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());
 				} catch (Exception e) {
-                    print("Error while splitting settings " + e.getMessage());
+					printException(e);
                     return null;
                 }
 
@@ -423,7 +423,7 @@ public class SoiExecutive extends TimedFSM {
 				try {
 					settings.set(name, f.get(this));
 				} catch (Exception e) {
-
+					printException(e);
 				}
 			}
 			clazz = clazz.getSuperclass();
@@ -444,7 +444,7 @@ public class SoiExecutive extends TimedFSM {
 					print("Config saved to " + CONFIG_FILE.getAbsolutePath());
 
 				} catch (Exception e) {
-					e.printStackTrace();
+					printException(e);
 				}
 			}
 		}
@@ -629,7 +629,7 @@ public class SoiExecutive extends TimedFSM {
 				return this::ascend;
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			printException(e);
 		}
 
 		if (arrivedZ()) {
