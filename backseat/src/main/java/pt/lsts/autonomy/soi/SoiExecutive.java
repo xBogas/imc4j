@@ -348,8 +348,12 @@ public class SoiExecutive extends TimedFSM {
 		switch (reply.command) {
 			case SOICMD_GET_PARAMS:
 			case SOICMD_SET_PARAMS:
-				if (reply.serialize().length > MAX_IR_SIZE)
-					replies.addAll(splitSettings(reply));
+				if (reply.serialize().length > MAX_IR_SIZE) {
+					ArrayList<SoiCommand> cmds = splitSettings(reply);
+					if (cmds == null)
+						return;
+					replies.addAll(cmds);
+				}
 				else
 					replies.add(reply);
 				break;
@@ -371,8 +375,11 @@ public class SoiExecutive extends TimedFSM {
 		ArrayList<SoiCommand> cmds = new ArrayList<>();
 		SoiCommand clone = null;
 		try {
-			clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());			
-		} catch (Exception e) {	}
+			clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());
+		} catch (Exception e) {
+			print("Error while splitting settings " + e.getMessage());
+			return null;
+		}
 		clone.settings = new TupleList();
 
 		for (String  key : keys) {
@@ -383,9 +390,12 @@ public class SoiExecutive extends TimedFSM {
 				clone.settings.remove(key);
 				cmds.add(clone);
 				try {
-					clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());					
-				} catch (Exception e) { }
-				
+					clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());
+				} catch (Exception e) {
+                    print("Error while splitting settings " + e.getMessage());
+                    return null;
+                }
+
 				clone.settings = new TupleList();
 				clone.settings.set(key, cmd.settings.get(key));
 			}
