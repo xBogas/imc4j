@@ -12,7 +12,6 @@ import java.util.Date;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Properties;
-import java.util.stream.Collectors;
 
 import pt.lsts.backseat.TimedFSM;
 import pt.lsts.endurance.Plan;
@@ -47,6 +46,11 @@ import pt.lsts.imc4j.util.WGS84Utilities;
 public class SoiExecutive extends TimedFSM {
 
 	private static final double TWO_PI_RADS = Math.PI * 2.0;
+
+    // Maximum Iridium Packet size - TODO: Check if not 340 or 250
+    private static final int MAX_IR_SIZE = 320;
+    private static final String SOI_PLAN_ID = "soi_plan";
+    private static final int ANGLE_DIFF_DEGS = 5;
 
 	@Parameter(description = "Nominal Speed")
 	public double speed = 1;
@@ -104,14 +108,12 @@ public class SoiExecutive extends TimedFSM {
 	private int count_secs = 0;
 	private int secs_underwater = 0;
 	private int wpt_index = 0;
-	private ArrayList<String> txtMessages = new ArrayList<>();
-	private ArrayList<SoiCommand> replies = new ArrayList<>();
-	private ArrayList<VerticalProfile> profiles = new ArrayList<>();
-	private VerticalProfiler<Temperature> tempProfiler = new VerticalProfiler<>();
-	private VerticalProfiler<Salinity> salProfiler = new VerticalProfiler<>();
 
-	private final String SOI_PLAN_ID = "soi_plan";
-	private final int ANGLE_DIFF_DEGS = 5;
+	final private ArrayList<String> txtMessages = new ArrayList<>();
+    final private ArrayList<SoiCommand> replies = new ArrayList<>();
+    final private ArrayList<VerticalProfile> profiles = new ArrayList<>();
+    final private VerticalProfiler<Temperature> tempProfiler = new VerticalProfiler<>();
+    final private VerticalProfiler<Salinity> salProfiler = new VerticalProfiler<>();
 
 	/**
 	 * Class constructor
@@ -346,8 +348,8 @@ public class SoiExecutive extends TimedFSM {
 		switch (reply.command) {
 			case SOICMD_GET_PARAMS:
 			case SOICMD_SET_PARAMS:
-				if (reply.serialize().length > 320)
-					replies.addAll(splitSettings(reply, 320));
+				if (reply.serialize().length > MAX_IR_SIZE)
+					replies.addAll(splitSettings(reply));
 				else
 					replies.add(reply);
 				break;
@@ -360,10 +362,10 @@ public class SoiExecutive extends TimedFSM {
 			state = this::start_waiting;
 		}
 	}
-	
-	private ArrayList<SoiCommand> splitSettings(SoiCommand cmd, int length) {
+
+	private ArrayList<SoiCommand> splitSettings(SoiCommand cmd) {
 		TupleList settings = cmd.settings;
-		List<String> keys = settings.keys().stream().collect(Collectors.toList());
+		List<String> keys = new ArrayList<>(settings.keys());
 		Collections.sort(keys);
 		
 		ArrayList<SoiCommand> cmds = new ArrayList<>();
@@ -372,13 +374,12 @@ public class SoiExecutive extends TimedFSM {
 			clone = (SoiCommand) SoiCommand.deserialize(cmd.serialize());			
 		} catch (Exception e) {	}
 		clone.settings = new TupleList();
-		
-		for (int i = 0; i < keys.size(); i++) {
-			String key = keys.get(i);
-			
+
+		for (String  key : keys) {
+
 			clone.settings.set(key, cmd.settings.get(key));
-			
-			if (clone.serialize().length > length) {
+
+			if (clone.serialize().length > MAX_IR_SIZE) {
 				clone.settings.remove(key);
 				cmds.add(clone);
 				try {
