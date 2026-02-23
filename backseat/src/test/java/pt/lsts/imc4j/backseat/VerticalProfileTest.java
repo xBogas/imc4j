@@ -9,8 +9,9 @@ import org.knowm.xchart.QuickChart;
 import org.knowm.xchart.SwingWrapper;
 import org.knowm.xchart.XYChart;
 
-import pt.lsts.autonomy.soi.VerticalProfiler;
+import pt.lsts.autonomy.soi.DepthBinnedProfiler;
 import pt.lsts.imc4j.msg.EstimatedState;
+import pt.lsts.imc4j.msg.Message;
 import pt.lsts.imc4j.msg.ProfileSample;
 import pt.lsts.imc4j.msg.Temperature;
 import pt.lsts.imc4j.msg.VerticalProfile;
@@ -26,7 +27,7 @@ public class VerticalProfileTest {
 	}
 
 	public static void main(String[] args) throws ParseException {
-		VerticalProfiler<Temperature> profiler = new VerticalProfiler<>();
+		DepthBinnedProfiler<Temperature> profiler = new DepthBinnedProfiler<>();
 
 		for (float i = 0; i < 100; i += 0.3) {
 			EstimatedState state = new EstimatedState();
@@ -44,8 +45,13 @@ public class VerticalProfileTest {
 			profiler.setSample(state, t);
 		}
 
-		VerticalProfile vp = profiler.getProfile(PARAMETER.PROF_TEMPERATURE, 25);
-		System.out.println(vp);
+		ArrayList<Message> lst = profiler.getProfile(PARAMETER.PROF_TEMPERATURE, 25);
+        if (lst.isEmpty()) {
+            return;
+        }
+
+        Message m = lst.get(0);
+        VerticalProfile vp = (VerticalProfile) m;
 
 		// for (ProfileSample s : vp.samples) {
 		// System.out.println(s.depth/10.0 +" -> "+s.avg);
