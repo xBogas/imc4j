@@ -21,6 +21,7 @@ import pt.lsts.imc4j.msg.StateReport;
 import pt.lsts.imc4j.msg.Temperature;
 import pt.lsts.imc4j.msg.VehicleMedium;
 import pt.lsts.imc4j.msg.VerticalProfile;
+import pt.lsts.imc4j.msg.VerticalProfile.PARAMETER;
 import pt.lsts.imc4j.util.PojoConfig;
 import pt.lsts.imc4j.util.TupleList;
 import pt.lsts.imc4j.util.WGS84Utilities;
@@ -233,10 +234,12 @@ public class SoiExecutive extends TimedFSM {
                         EstimatedState s = get(EstimatedState.class);
                         if (s != null) {
                             double[] pos = WGS84Utilities.toLatLonDepth(s);
-                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, split ? minsOff * 60 : 0);
+                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, split ?
+                                    minsOff * 60 : 0);
                         }
                         else {
-                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, split ? minsOff * 60 : 0);
+                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, split ? minsOff
+                                    * 60 : 0);
                         }
                     }
 
@@ -592,7 +595,8 @@ public class SoiExecutive extends TimedFSM {
 
                 if (plan.getETA().after(deadline)) {
                     int timeDiff = (int) ((plan.getETA().getTime() - deadline.getTime()) / 1000.0);
-                    String err = "Cycled. Deadline would be reached " + timeDiff + " seconds before the end of the plan";
+                    String err =
+                            "Cycled. Deadline would be reached " + timeDiff + " seconds before the end of the plan";
                     printError(err);
                     plan = null;
                     txtMessages.add(err);
@@ -720,19 +724,22 @@ public class SoiExecutive extends TimedFSM {
             return next;
         }
 
-        if (target_depth > 0 && arrivedZ() || !isUnderwater()) {
+        if (target_depth <= 0 || arrivedZ() && isUnderwater()) {
+            return this::ascend;
+        }
+
             if (secs_no_comms / 60 >= minsOff) {
                 print("Periodic surface");
                 return this::start_waiting;
             }
-            else {
+
                 if (maxDepth != target_depth) {
                     print("Now descending (disconnected for " + secs_no_comms + " seconds).");
                     VerticalProfile salProf = null, tempProf = null;
 
                     try {
-                        salProf = salProfiler.getProfile(VerticalProfile.PARAMETER.PROF_SALINITY, Math.min((int) maxDepth, 20));
-                        tempProf = tempProfiler.getProfile(VerticalProfile.PARAMETER.PROF_TEMPERATURE, Math.min((int) maxDepth, 20));
+                salProf = salProfiler.getProfile(PARAMETER.PROF_SALINITY, Math.min((int) maxDepth, 20));
+                tempProf = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, Math.min((int) maxDepth, 20));
                     }
                     catch (Exception e) {
                         print(e.getClass().getSimpleName() + " while calculating profile: " + e.getMessage());
@@ -769,16 +776,8 @@ public class SoiExecutive extends TimedFSM {
                 else if (align) {
                     return this::align;
                 }
-                else {
+        
                     return this::dive;
-                }
-            }
-
-        }
-        else {
-            return this::ascend;
-        }
-
     }
 
     /**
