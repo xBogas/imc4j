@@ -596,7 +596,6 @@ public class SoiExecutive extends TimedFSM {
                     printError(err);
                     plan = null;
                     txtMessages.add(err);
-                    setAndInformEndOfPlan();
                     return this::idleAtSurface;
                 }
 
@@ -612,7 +611,6 @@ public class SoiExecutive extends TimedFSM {
                 return this::start_waiting;
             }
             else {
-                setAndInformEndOfPlan();
                 return this::idleAtSurface;
             }
         }
@@ -622,6 +620,21 @@ public class SoiExecutive extends TimedFSM {
         setSpeed();
 
         return this::align;
+    }
+
+    private boolean planEnded() {
+
+        // No valid plan was running
+        if (plan == null || plan.waypoints().isEmpty()) {
+            return false;
+        }
+
+        Waypoint wpt = plan.waypoint(wpt_index);
+        if (cycle) {
+            return plan.getETA().after(deadline);
+        }
+
+        return wpt == null;
     }
 
     private void setAndInformEndOfPlan() {
@@ -638,6 +651,14 @@ public class SoiExecutive extends TimedFSM {
         reply.plan = null;
         reply.info = "Finished plan execution. Waiting instructions.";
         replies.add(reply);
+
+        try {
+            // Send to save on DUNE log
+            send(reply);
+        }
+        catch (Exception e) {
+            printException(e);
+        }
     }
 
     /**
@@ -827,6 +848,10 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState communicate(FollowRefState ref) {
         printFSMState();
+
+        if (planEnded()) {
+            setAndInformEndOfPlan();
+        }
 
         int min_wait = wptSecs;
         int max_wait = wptSecs * 3;
