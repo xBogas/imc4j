@@ -10,7 +10,7 @@ import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 
 /**
- * Measurement of wind speed.
+ * Measurement of relative wind speed. (Meaning without correcting for vehicle effects).
  */
 public class WindSpeed extends Message {
 	public static final int ID_STATIC = 271;

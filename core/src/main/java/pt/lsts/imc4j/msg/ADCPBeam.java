@@ -41,7 +41,6 @@ public class ADCPBeam extends Message {
 	@FieldType(
 			type = IMCField.TYPE_UINT8,
 			max = 100,
-			min = 0,
 			units = "%"
 	)
 	public int cor = 0;

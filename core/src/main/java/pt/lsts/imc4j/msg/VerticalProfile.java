@@ -42,7 +42,7 @@ public class VerticalProfile extends Message {
 	 */
 	@FieldType(
 			type = IMCField.TYPE_FP64,
-			units = "rad"
+			units = "°"
 	)
 	public double lat = 0;
 
@@ -51,7 +51,7 @@ public class VerticalProfile extends Message {
 	 */
 	@FieldType(
 			type = IMCField.TYPE_FP64,
-			units = "rad"
+			units = "°"
 	)
 	public double lon = 0;
 
@@ -106,7 +106,19 @@ public class VerticalProfile extends Message {
 
 		PROF_CHLOROPHYLL(5l),
 
-		PROF_TURBIDITY(6l);
+		PROF_TURBIDITY(6l),
+
+		PROF_CURRENT_VELOCITY_N(7l),
+
+		PROF_CURRENT_VELOCITY_E(8l),
+
+		PROF_ABSOLUTE_WIND_AVG(9l),
+
+		PROF_ABSOLUTE_WIND_MAX(10l),
+
+		PROF_DISS_ORGANIC_MATTER(11l),
+
+		PROF_DISS_OXYGEN(12l);
 
 		protected long value;
 

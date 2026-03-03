@@ -31,6 +31,8 @@ public class MessageFactory {
 
 	public static final int ID_MsgList = 20;
 
+	public static final int ID_RamUsage = 21;
+
 	public static final int ID_SimulatedState = 50;
 
 	public static final int ID_LeakSimulation = 51;
@@ -120,6 +122,10 @@ public class MessageFactory {
 	public static final int ID_LblBeacon = 202;
 
 	public static final int ID_LblConfig = 203;
+
+	public static final int ID_LblBeaconExtended = 204;
+
+	public static final int ID_LblConfigExtended = 205;
 
 	public static final int ID_AcousticMessage = 206;
 
@@ -423,9 +429,11 @@ public class MessageFactory {
 
 	public static final int ID_Alignment = 495;
 
-	public static final int ID_StationKeepingExtended = 496;
+	public static final int ID_FollowCommand = 496;
 
-	public static final int ID_ManeuverDone = 497;
+	public static final int ID_Command = 497;
+
+	public static final int ID_FollowCommandState = 498;
 
 	public static final int ID_Magnetometer = 499;
 
@@ -539,6 +547,12 @@ public class MessageFactory {
 
 	public static final int ID_ImageTxSettings = 703;
 
+	public static final int ID_ImageSnippet = 704;
+
+	public static final int ID_ManeuverDone = 719;
+
+	public static final int ID_StationKeepingExtended = 720;
+
 	public static final int ID_RemoteState = 750;
 
 	public static final int ID_Target = 800;
@@ -579,6 +593,8 @@ public class MessageFactory {
 
 	public static final int ID_UamTxRange = 818;
 
+	public static final int ID_UamJanusPacket = 819;
+
 	public static final int ID_FormCtrlParam = 820;
 
 	public static final int ID_FormationEval = 821;
@@ -596,6 +612,8 @@ public class MessageFactory {
 	public static final int ID_SoiState = 853;
 
 	public static final int ID_MessagePart = 877;
+
+	public static final int ID_MessagePartControl = 878;
 
 	public static final int ID_NeptusBlob = 888;
 
@@ -641,11 +659,31 @@ public class MessageFactory {
 
 	public static final int ID_HomePosition = 909;
 
+	public static final int ID_ChargingState = 910;
+
+	public static final int ID_AbsoluteWind = 911;
+
+	public static final int ID_AisInfo = 912;
+
+	public static final int ID_ENCAwareness = 913;
+
+	public static final int ID_Displacement = 915;
+
 	public static final int ID_CurrentProfile = 1014;
 
 	public static final int ID_CurrentProfileCell = 1015;
 
 	public static final int ID_ADCPBeam = 1016;
+
+	public static final int ID_Frequency = 1017;
+
+	public static final int ID_WaveSpectrumParameters = 1018;
+
+	public static final int ID_FileSampleEvent = 1102;
+
+	public static final int ID_QueryGsmCredit = 1103;
+
+	public static final int ID_FileClassification = 1104;
 
 	public static final int ID_GpioState = 2000;
 
@@ -657,9 +695,61 @@ public class MessageFactory {
 
 	public static final int ID_FluorescentDissolvedOrganicMatter = 2004;
 
+	public static final int ID_IridiumMsgTxExtended = 2005;
+
 	public static final int ID_TotalMagIntensity = 2006;
 
+	public static final int ID_ValidatePlan = 2007;
+
 	public static final int ID_CommRestriction = 2010;
+
+	public static final int ID_WifiStats = 2011;
+
+	public static final int ID_WifiNetwork = 2012;
+
+	public static final int ID_SonarPulse = 2013;
+
+	public static final int ID_HealthCheck = 2015;
+
+	public static final int ID_QueryTypedEntityParameters = 2016;
+
+	public static final int ID_TypedEntityParameter = 2017;
+
+	public static final int ID_ValuesIf = 2018;
+
+	public static final int ID_DirSonarData = 2019;
+
+	public static final int ID_ManeuverResumed = 2020;
+
+	public static final int ID_VersionInfo = 2021;
+
+	public static final int ID_TotalHeading = 2022;
+
+	public static final int ID_SatellitesInView = 2023;
+
+	public static final int ID_GnssHwMon = 2024;
+
+	public static final int ID_PulseWidth = 2025;
+
+	public static final int ID_SpecificConductance = 2026;
+
+	public static final int ID_Ammonia = 2027;
+
+	public static final int ID_Ammonium = 2028;
+
+	public static final int ID_Nitrate = 2029;
+
+	public static final int ID_NitrateN = 2030;
+
+	public static final int ID_Chloride = 2031;
+
+	public static final int ID_TDS = 2032;
+
+	public static final int ID_TSS = 2033;
+
+	public static final int ID_NLF = 2034;
+
+	public static final int ID_TypedEntityParameterEditor = 2036;
 
 	public static Message create(int mgid) {
 		switch(mgid) {
@@ -704,6 +794,9 @@ public class MessageFactory {
 			}
 			case ID_MsgList: {
 				return new MsgList();
+			}
+			case ID_RamUsage: {
+				return new RamUsage();
 			}
 			case ID_SimulatedState: {
 				return new SimulatedState();
@@ -839,6 +932,12 @@ public class MessageFactory {
 			}
 			case ID_LblConfig: {
 				return new LblConfig();
+			}
+			case ID_LblBeaconExtended: {
+				return new LblBeaconExtended();
+			}
+			case ID_LblConfigExtended: {
+				return new LblConfigExtended();
 			}
 			case ID_AcousticMessage: {
 				return new AcousticMessage();
@@ -1293,11 +1392,14 @@ public class MessageFactory {
 			case ID_Alignment: {
 				return new Alignment();
 			}
-			case ID_StationKeepingExtended: {
-				return new StationKeepingExtended();
+			case ID_FollowCommand: {
+				return new FollowCommand();
 			}
-			case ID_ManeuverDone: {
-				return new ManeuverDone();
+			case ID_Command: {
+				return new Command();
+			}
+			case ID_FollowCommandState: {
+				return new FollowCommandState();
 			}
 			case ID_Magnetometer: {
 				return new Magnetometer();
@@ -1467,6 +1569,15 @@ public class MessageFactory {
 			case ID_ImageTxSettings: {
 				return new ImageTxSettings();
 			}
+			case ID_ImageSnippet: {
+				return new ImageSnippet();
+			}
+			case ID_ManeuverDone: {
+				return new ManeuverDone();
+			}
+			case ID_StationKeepingExtended: {
+				return new StationKeepingExtended();
+			}
 			case ID_RemoteState: {
 				return new RemoteState();
 			}
@@ -1527,6 +1638,9 @@ public class MessageFactory {
 			case ID_UamTxRange: {
 				return new UamTxRange();
 			}
+			case ID_UamJanusPacket: {
+				return new UamJanusPacket();
+			}
 			case ID_FormCtrlParam: {
 				return new FormCtrlParam();
 			}
@@ -1553,6 +1667,9 @@ public class MessageFactory {
 			}
 			case ID_MessagePart: {
 				return new MessagePart();
+			}
+			case ID_MessagePartControl: {
+				return new MessagePartControl();
 			}
 			case ID_NeptusBlob: {
 				return new NeptusBlob();
@@ -1620,6 +1737,21 @@ public class MessageFactory {
 			case ID_HomePosition: {
 				return new HomePosition();
 			}
+			case ID_ChargingState: {
+				return new ChargingState();
+			}
+			case ID_AbsoluteWind: {
+				return new AbsoluteWind();
+			}
+			case ID_AisInfo: {
+				return new AisInfo();
+			}
+			case ID_ENCAwareness: {
+				return new ENCAwareness();
+			}
+			case ID_Displacement: {
+				return new Displacement();
+			}
 			case ID_CurrentProfile: {
 				return new CurrentProfile();
 			}
@@ -1628,6 +1760,21 @@ public class MessageFactory {
 			}
 			case ID_ADCPBeam: {
 				return new ADCPBeam();
+			}
+			case ID_Frequency: {
+				return new Frequency();
+			}
+			case ID_WaveSpectrumParameters: {
+				return new WaveSpectrumParameters();
+			}
+			case ID_FileSampleEvent: {
+				return new FileSampleEvent();
+			}
+			case ID_QueryGsmCredit: {
+				return new QueryGsmCredit();
+			}
+			case ID_FileClassification: {
+				return new FileClassification();
 			}
 			case ID_GpioState: {
 				return new GpioState();
@@ -1644,11 +1791,89 @@ public class MessageFactory {
 			case ID_FluorescentDissolvedOrganicMatter: {
 				return new FluorescentDissolvedOrganicMatter();
 			}
+			case ID_IridiumMsgTxExtended: {
+				return new IridiumMsgTxExtended();
+			}
 			case ID_TotalMagIntensity: {
 				return new TotalMagIntensity();
 			}
+			case ID_ValidatePlan: {
+				return new ValidatePlan();
+			}
 			case ID_CommRestriction: {
 				return new CommRestriction();
+			}
+			case ID_WifiStats: {
+				return new WifiStats();
+			}
+			case ID_WifiNetwork: {
+				return new WifiNetwork();
+			}
+			case ID_SonarPulse: {
+				return new SonarPulse();
+			}
+			case ID_HealthCheck: {
+				return new HealthCheck();
+			}
+			case ID_QueryTypedEntityParameters: {
+				return new QueryTypedEntityParameters();
+			}
+			case ID_TypedEntityParameter: {
+				return new TypedEntityParameter();
+			}
+			case ID_ValuesIf: {
+				return new ValuesIf();
+			}
+			case ID_DirSonarData: {
+				return new DirSonarData();
+			}
+			case ID_ManeuverResumed: {
+				return new ManeuverResumed();
+			}
+			case ID_VersionInfo: {
+				return new VersionInfo();
+			}
+			case ID_TotalHeading: {
+				return new TotalHeading();
+			}
+			case ID_SatellitesInView: {
+				return new SatellitesInView();
+			}
+			case ID_GnssHwMon: {
+				return new GnssHwMon();
+			}
+			case ID_PulseWidth: {
+				return new PulseWidth();
+			}
+			case ID_SpecificConductance: {
+				return new SpecificConductance();
+			}
+			case ID_Ammonia: {
+				return new Ammonia();
+			}
+			case ID_Ammonium: {
+				return new Ammonium();
+			}
+			case ID_Nitrate: {
+				return new Nitrate();
+			}
+			case ID_NitrateN: {
+				return new NitrateN();
+			}
+			case ID_Chloride: {
+				return new Chloride();
+			}
+			case ID_TDS: {
+				return new TDS();
+			}
+			case ID_TSS: {
+				return new TSS();
+			}
+			case ID_NLF: {
+				return new NLF();
+			}
+			case ID_TypedEntityParameterEditor: {
+				return new TypedEntityParameterEditor();
 			}
 			default: {
 				return null;
@@ -1703,6 +1928,9 @@ public class MessageFactory {
 			}
 			case "MsgList": {
 				return ID_MsgList;
+			}
+			case "RamUsage": {
+				return ID_RamUsage;
 			}
 			case "SimulatedState": {
 				return ID_SimulatedState;
@@ -1838,6 +2066,12 @@ public class MessageFactory {
 			}
 			case "LblConfig": {
 				return ID_LblConfig;
+			}
+			case "LblBeaconExtended": {
+				return ID_LblBeaconExtended;
+			}
+			case "LblConfigExtended": {
+				return ID_LblConfigExtended;
 			}
 			case "AcousticMessage": {
 				return ID_AcousticMessage;
@@ -2292,11 +2526,14 @@ public class MessageFactory {
 			case "Alignment": {
 				return ID_Alignment;
 			}
-			case "StationKeepingExtended": {
-				return ID_StationKeepingExtended;
+			case "FollowCommand": {
+				return ID_FollowCommand;
 			}
-			case "ManeuverDone": {
-				return ID_ManeuverDone;
+			case "Command": {
+				return ID_Command;
+			}
+			case "FollowCommandState": {
+				return ID_FollowCommandState;
 			}
 			case "Magnetometer": {
 				return ID_Magnetometer;
@@ -2466,6 +2703,15 @@ public class MessageFactory {
 			case "ImageTxSettings": {
 				return ID_ImageTxSettings;
 			}
+			case "ImageSnippet": {
+				return ID_ImageSnippet;
+			}
+			case "ManeuverDone": {
+				return ID_ManeuverDone;
+			}
+			case "StationKeepingExtended": {
+				return ID_StationKeepingExtended;
+			}
 			case "RemoteState": {
 				return ID_RemoteState;
 			}
@@ -2526,6 +2772,9 @@ public class MessageFactory {
 			case "UamTxRange": {
 				return ID_UamTxRange;
 			}
+			case "UamJanusPacket": {
+				return ID_UamJanusPacket;
+			}
 			case "FormCtrlParam": {
 				return ID_FormCtrlParam;
 			}
@@ -2552,6 +2801,9 @@ public class MessageFactory {
 			}
 			case "MessagePart": {
 				return ID_MessagePart;
+			}
+			case "MessagePartControl": {
+				return ID_MessagePartControl;
 			}
 			case "NeptusBlob": {
 				return ID_NeptusBlob;
@@ -2619,6 +2871,21 @@ public class MessageFactory {
 			case "HomePosition": {
 				return ID_HomePosition;
 			}
+			case "ChargingState": {
+				return ID_ChargingState;
+			}
+			case "AbsoluteWind": {
+				return ID_AbsoluteWind;
+			}
+			case "AisInfo": {
+				return ID_AisInfo;
+			}
+			case "ENCAwareness": {
+				return ID_ENCAwareness;
+			}
+			case "Displacement": {
+				return ID_Displacement;
+			}
 			case "CurrentProfile": {
 				return ID_CurrentProfile;
 			}
@@ -2627,6 +2894,21 @@ public class MessageFactory {
 			}
 			case "ADCPBeam": {
 				return ID_ADCPBeam;
+			}
+			case "Frequency": {
+				return ID_Frequency;
+			}
+			case "WaveSpectrumParameters": {
+				return ID_WaveSpectrumParameters;
+			}
+			case "FileSampleEvent": {
+				return ID_FileSampleEvent;
+			}
+			case "QueryGsmCredit": {
+				return ID_QueryGsmCredit;
+			}
+			case "FileClassification": {
+				return ID_FileClassification;
 			}
 			case "GpioState": {
 				return ID_GpioState;
@@ -2643,11 +2925,89 @@ public class MessageFactory {
 			case "FluorescentDissolvedOrganicMatter": {
 				return ID_FluorescentDissolvedOrganicMatter;
 			}
+			case "IridiumMsgTxExtended": {
+				return ID_IridiumMsgTxExtended;
+			}
 			case "TotalMagIntensity": {
 				return ID_TotalMagIntensity;
 			}
+			case "ValidatePlan": {
+				return ID_ValidatePlan;
+			}
 			case "CommRestriction": {
 				return ID_CommRestriction;
+			}
+			case "WifiStats": {
+				return ID_WifiStats;
+			}
+			case "WifiNetwork": {
+				return ID_WifiNetwork;
+			}
+			case "SonarPulse": {
+				return ID_SonarPulse;
+			}
+			case "HealthCheck": {
+				return ID_HealthCheck;
+			}
+			case "QueryTypedEntityParameters": {
+				return ID_QueryTypedEntityParameters;
+			}
+			case "TypedEntityParameter": {
+				return ID_TypedEntityParameter;
+			}
+			case "ValuesIf": {
+				return ID_ValuesIf;
+			}
+			case "DirSonarData": {
+				return ID_DirSonarData;
+			}
+			case "ManeuverResumed": {
+				return ID_ManeuverResumed;
+			}
+			case "VersionInfo": {
+				return ID_VersionInfo;
+			}
+			case "TotalHeading": {
+				return ID_TotalHeading;
+			}
+			case "SatellitesInView": {
+				return ID_SatellitesInView;
+			}
+			case "GnssHwMon": {
+				return ID_GnssHwMon;
+			}
+			case "PulseWidth": {
+				return ID_PulseWidth;
+			}
+			case "SpecificConductance": {
+				return ID_SpecificConductance;
+			}
+			case "Ammonia": {
+				return ID_Ammonia;
+			}
+			case "Ammonium": {
+				return ID_Ammonium;
+			}
+			case "Nitrate": {
+				return ID_Nitrate;
+			}
+			case "NitrateN": {
+				return ID_NitrateN;
+			}
+			case "Chloride": {
+				return ID_Chloride;
+			}
+			case "TDS": {
+				return ID_TDS;
+			}
+			case "TSS": {
+				return ID_TSS;
+			}
+			case "NLF": {
+				return ID_NLF;
+			}
+			case "TypedEntityParameterEditor": {
+				return ID_TypedEntityParameterEditor;
 			}
 			default: {
 				return -1;

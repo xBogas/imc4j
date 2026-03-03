@@ -72,7 +72,9 @@ public class EntityList extends Message {
 	public enum OP {
 		OP_REPORT(0l),
 
-		OP_QUERY(1l);
+		OP_QUERY(1l),
+
+		OP_RELOAD(2l);
 
 		protected long value;
 

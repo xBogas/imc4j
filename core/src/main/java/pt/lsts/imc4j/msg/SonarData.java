@@ -194,7 +194,9 @@ public class SonarData extends Message {
 
 		ST_ECHOSOUNDER(1l),
 
-		ST_MULTIBEAM(2l);
+		ST_MULTIBEAM(2l),
+
+		ST_PENCILBEAM(3l);
 
 		protected long value;
 

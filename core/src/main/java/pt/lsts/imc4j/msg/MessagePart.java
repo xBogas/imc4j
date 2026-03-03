@@ -10,6 +10,13 @@ import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 import pt.lsts.imc4j.util.SerializationUtils;
 
+/**
+ * This message is used to send a fragment of a message. The
+ * fragments are sent in order, and the receiver must reassemble
+ * them in the correct order.
+ * The receiver can use the MessagePartControl message to inform the sender
+ * of the status of the fragment transmission.
+ */
 public class MessagePart extends Message {
 	public static final int ID_STATIC = 877;
 

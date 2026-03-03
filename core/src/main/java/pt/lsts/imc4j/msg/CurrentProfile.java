@@ -106,7 +106,9 @@ public class CurrentProfile extends Message {
 
 		UTF_NED(0x02l),
 
-		UTF_BEAMS(0x04l);
+		UTF_BEAMS(0x04l),
+
+		UTF_ENU(0x08l);
 
 		protected long value;
 

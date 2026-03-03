@@ -138,7 +138,9 @@ public class AcousticStatus extends Message {
 
 		STATUS_ERROR(102l),
 
-		STATUS_UNSUPPORTED(666l);
+		STATUS_INV_ADDR(103l),
+
+		STATUS_UNSUPPORTED(255l);
 
 		protected long value;
 
