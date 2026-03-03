@@ -4,13 +4,17 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Properties;
 
 import javax.xml.bind.DatatypeConverter;
 
+import pt.lsts.imc4j.annotations.FieldChange;
 import pt.lsts.imc4j.annotations.Parameter;
 
 /**
@@ -25,6 +29,8 @@ public class PojoConfig {
 	public static void cliParams(Object pojo, String[] arguments) throws Exception {
 		setProperties(pojo, asProperties(arguments));
 	}
+    // Not thread safe - single class only!
+    private static final Map<String, Method> fieldNotifications = new HashMap<>();
 
 	public static Properties asProperties(String[] arguments) throws Exception {
 		Properties p = new Properties();
@@ -44,15 +50,50 @@ public class PojoConfig {
 
 	public static <T> T create(Class<T> pojoClass, Properties props) throws Exception {
 		T pojo = pojoClass.getDeclaredConstructor().newInstance();
+        indexCallbacks(pojoClass);
 		setProperties(pojo, props);
 		return pojo;
 	}
 
 	public static <T> T create(Class<T> pojoClass, String[] args) throws Exception {
-		T pojo = pojoClass.getDeclaredConstructor().newInstance();
-		setProperties(pojo, asProperties(args));
-		return pojo;
+		return create(pojoClass, asProperties(args));
 	}
+
+    private static void indexCallbacks(Class<?> c) throws RuntimeException {
+        for (Method m : c.getDeclaredMethods()) {
+            if (!m.isAnnotationPresent(FieldChange.class)) {
+                continue;
+            }
+
+            String fieldName = m.getAnnotation(FieldChange.class).field();
+
+            try {
+                validateFieldExists(c, fieldName);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(String.format(
+                        "CRITICAL CONFIG ERROR: Class '%s' has a @FieldChange on method '%s' " +
+                                "pointing to field '%s', but that field does not exist!",
+                        c.getSimpleName(), m.getName(), fieldName));
+            }
+
+            m.setAccessible(true);
+            fieldNotifications.put(fieldName, m);
+            System.out.printf("Registered notification: %s -> %s()\n", fieldName, m.getName());
+        }
+    }
+
+    private static void validateFieldExists(Class<?> clazz, String fieldName) throws NoSuchFieldException {
+        Class<?> current = clazz;
+        while (current != null) {
+            try {
+                current.getDeclaredField(fieldName);
+                return; // Found it!
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass(); // Check parent class
+            }
+        }
+        throw new NoSuchFieldException(fieldName);
+    }
 
 	public static void setProperties(Object pojo, Properties props) throws Exception {
 		validate(pojo);
@@ -183,6 +224,13 @@ public class PojoConfig {
 		default:
 			throw new Exception("Invalid parameter type: '" + f.getType().getSimpleName() + "'");
 		}
+
+        if (!fieldNotifications.containsKey(f.getName())) {
+            return;
+        }
+
+        Method m = fieldNotifications.get(f.getName());
+        m.invoke(pojo);
 	}
 
 	public static ArrayList<Field> loadFields(Object pojo) {
