@@ -5,6 +5,7 @@ import pt.lsts.endurance.Plan;
 import pt.lsts.endurance.Waypoint;
 import pt.lsts.imc4j.annotations.Consume;
 import pt.lsts.imc4j.annotations.Parameter;
+import pt.lsts.imc4j.annotations.FieldChange;
 import pt.lsts.imc4j.def.SpeedUnits;
 import pt.lsts.imc4j.msg.EntityParameter;
 import pt.lsts.imc4j.msg.EntityParameters;
@@ -12,6 +13,7 @@ import pt.lsts.imc4j.msg.EstimatedState;
 import pt.lsts.imc4j.msg.FollowRefState;
 import pt.lsts.imc4j.msg.FuelLevel;
 import pt.lsts.imc4j.msg.IridiumTxStatus;
+import pt.lsts.imc4j.msg.Message;
 import pt.lsts.imc4j.msg.PlanControl;
 import pt.lsts.imc4j.msg.PlanControlState;
 import pt.lsts.imc4j.msg.ReportControl;
@@ -50,9 +52,10 @@ public class SoiExecutive extends TimedFSM {
     protected static File CONFIG_FILE = null;
     final private ArrayList<String> txtMessages = new ArrayList<>();
     final private ArrayList<SoiCommand> replies = new ArrayList<>();
-    final private ArrayList<VerticalProfile> profiles = new ArrayList<>();
-    final private VerticalProfiler<Temperature> tempProfiler = new VerticalProfiler<>();
-    final private VerticalProfiler<Salinity> salProfiler = new VerticalProfiler<>();
+    final private ArrayList<Message> profiles = new ArrayList<>();
+    private DataProfiler<Temperature> tempProfiler;
+    private DataProfiler<Salinity> salProfiler;
+
     @Parameter(description = "Nominal Speed")
     public double speed = 1;
     @Parameter(description = "Maximum Depth")
@@ -87,6 +90,11 @@ public class SoiExecutive extends TimedFSM {
     public boolean align = true;
     @Parameter(description = "Split transects based on maximum offline time")
     public boolean split = false;
+    @Parameter(description = "Use vertical profile as the data profiler")
+    public boolean useVP = true;
+    @Parameter(description = "Minimum number of samples to send")
+    public int minSamples = 20;
+
     private Plan plan = new Plan("idle");
     private int secs_no_comms = 0;
     private int count_secs = 0;
@@ -102,6 +110,16 @@ public class SoiExecutive extends TimedFSM {
         state = this::idleAtSurface;
     }
 
+    @FieldChange(field = "useVP")
+    public void onProfilerChange() {
+
+        tempProfiler = useVP ? new DepthBinnedProfiler<>() : new SubsamplingProfiler<>();
+        salProfiler = useVP ? new DepthBinnedProfiler<>() : new SubsamplingProfiler<>();
+
+        String text = String.format("Using %s profiler", useVP ? "Depth binner" : "Subsampling");
+        print(text);
+    }
+
     private static double normalizeAngleRads2Pi(double angle) {
         double ret = angle;
         ret = ret % TWO_PI_RADS;
@@ -109,37 +127,6 @@ public class SoiExecutive extends TimedFSM {
             ret += TWO_PI_RADS;
         }
         return ret;
-    }
-
-    public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
-            System.err.println("Usage: java -jar SoiExec.jar <FILE>");
-            System.exit(1);
-        }
-
-        CONFIG_FILE = new File(args[0]);
-        if (!CONFIG_FILE.exists()) {
-            new SoiExecutive().saveConfig(CONFIG_FILE);
-            System.out.println("Wrote default properties to " + CONFIG_FILE.getAbsolutePath());
-            System.exit(0);
-        }
-
-        Properties props = new Properties();
-        props.load(new FileInputStream(CONFIG_FILE));
-
-        SoiExecutive tracker = PojoConfig.create(SoiExecutive.class, props);
-
-        System.out.println("Executive started with settings:");
-        for (Field f : tracker.getClass().getDeclaredFields()) {
-            Parameter p = f.getAnnotation(Parameter.class);
-            if (p != null) {
-                System.out.println(f.getName() + "=" + f.get(tracker));
-            }
-        }
-        System.out.println();
-
-        tracker.connect(tracker.hAddr, tracker.hPort);
-        tracker.join();
     }
 
     /// Override to not allow finish to happen, but pause instead
@@ -541,12 +528,10 @@ public class SoiExecutive extends TimedFSM {
     /**
      * Updates the communication timer and evaluates global transition guards.
      * <p>
-     * This method checks for safety-critical conditions (communication timeouts)
-     * and mission progress (reaching a waypoint) that trigger a state change
-     * regardless of the current FSM activity.
+     * This method checks for safety-critical conditions (communication timeouts) and mission progress (reaching a
+     * waypoint) that trigger a state change regardless of the current FSM activity.
      *
-     * @return The next {@link FSMState} to transition to, or {@code null} if no
-     * transition is required.
+     * @return The next {@link FSMState} to transition to, or {@code null} if no transition is required.
      */
     private FSMState checkTransitions() {
         secs_no_comms++;
@@ -728,56 +713,67 @@ public class SoiExecutive extends TimedFSM {
             return this::ascend;
         }
 
-            if (secs_no_comms / 60 >= minsOff) {
-                print("Periodic surface");
-                return this::start_waiting;
+        if (secs_no_comms / 60 >= minsOff) {
+            print("Periodic surface");
+            return this::start_waiting;
+        }
+
+        if (maxDepth != target_depth) {
+            print("Now descending (disconnected for " + secs_no_comms + " seconds).");
+            ArrayList<Message> salProf = null, tempProf = null;
+
+            int nSamples = Math.min((int) maxDepth, minSamples);
+            if (!useVP) {
+                nSamples = minSamples;
             }
 
-                if (maxDepth != target_depth) {
-                    print("Now descending (disconnected for " + secs_no_comms + " seconds).");
-                    VerticalProfile salProf = null, tempProf = null;
+            try {
+                salProf = salProfiler.getProfile(PARAMETER.PROF_SALINITY, nSamples);
+                tempProf = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, nSamples);
+            }
+            catch (Exception e) {
+                print(e.getClass().getSimpleName() + " while calculating profile: " + e.getMessage());
+            }
 
-                    try {
-                salProf = salProfiler.getProfile(PARAMETER.PROF_SALINITY, Math.min((int) maxDepth, 20));
-                tempProf = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, Math.min((int) maxDepth, 20));
-                    }
-                    catch (Exception e) {
-                        print(e.getClass().getSimpleName() + " while calculating profile: " + e.getMessage());
-                    }
-
-                    if (tempProf != null) {
-                        if (upTemp) {
-                            profiles.add(tempProf);
-                            print("Added temperature profile with " + tempProf.samples.size() + " samples");
-                        }
-
-                        FSMState newState = onTemperatureProfile(tempProf);
-                        if (newState != null) {
-                            return newState;
-                        }
-                    }
-
-                    if (salProf != null) {
-                        if (upSal) {
-                            profiles.add(salProf);
-                            print("Added salinity profile with " + salProf.samples.size() + " samples");
-                        }
-
-                        FSMState newState = onSalinityProfile(salProf);
-                        if (newState != null) {
-                            return newState;
-                        }
-                    }
+            if (tempProf != null) {
+                if (upTemp) {
+                    profiles.addAll(tempProf);
+                    print("Added temperature profile with " + tempProf.size() + " samples");
                 }
 
-                if (isUnderwater()) {
-                    return this::descend;
+                if (useVP) { // For compatibility
+                    VerticalProfile vp = (VerticalProfile) tempProf.get(0);
+                    FSMState newState = onTemperatureProfile(vp);
+                    if (newState != null) {
+                        return newState;
+                    }
                 }
-                else if (align) {
-                    return this::align;
+            }
+
+            if (salProf != null) {
+                if (upSal) {
+                    profiles.addAll(salProf);
+                    print("Added salinity profile with " + salProf.size() + " samples");
                 }
-        
-                    return this::dive;
+
+                if (useVP) { // For compatibility
+                    VerticalProfile vp = (VerticalProfile) salProf.get(0);
+                    FSMState newState = onSalinityProfile(vp);
+                    if (newState != null) {
+                        return newState;
+                    }
+                }
+            }
+        }
+
+        if (isUnderwater()) {
+            return this::descend;
+        }
+        else if (align) {
+            return this::align;
+        }
+
+        return this::dive;
     }
 
     /**
@@ -1101,5 +1097,36 @@ public class SoiExecutive extends TimedFSM {
             }
         }
         writer.close();
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length != 1) {
+            System.err.println("Usage: java -jar SoiExec.jar <FILE>");
+            System.exit(1);
+        }
+
+        CONFIG_FILE = new File(args[0]);
+        if (!CONFIG_FILE.exists()) {
+            new SoiExecutive().saveConfig(CONFIG_FILE);
+            System.out.println("Wrote default properties to " + CONFIG_FILE.getAbsolutePath());
+            System.exit(0);
+        }
+
+        Properties props = new Properties();
+        props.load(new FileInputStream(CONFIG_FILE));
+
+        SoiExecutive tracker = PojoConfig.create(SoiExecutive.class, props);
+
+        System.out.println("Executive started with settings:");
+        for (Field f : tracker.getClass().getDeclaredFields()) {
+            Parameter p = f.getAnnotation(Parameter.class);
+            if (p != null) {
+                System.out.println(f.getName() + "=" + f.get(tracker));
+            }
+        }
+        System.out.println();
+
+        tracker.connect(tracker.hAddr, tracker.hPort);
+        tracker.join();
     }
 }
