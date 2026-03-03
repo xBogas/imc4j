@@ -22,7 +22,7 @@ hAddr=127.0.0.1
 hPort=6006
 
 #Minutes before termination
-timeout=600
+timeout=60000
 
 #Maximum time without reporting position
 minsOff=15
@@ -31,7 +31,7 @@ minsOff=15
 minsUnder=3
 
 #Seconds to idle at each vertex
-wptSecs=60
+wptSecs=2
 
 #Cyclic execution
 cycle=false
@@ -40,8 +40,11 @@ cycle=false
 descRpm=1300
 
 #Upload temperature profiles when idle
-upTemp=false
+upTemp=true
 
 #Align with destination waypoint before going underwater
 align=true
+
+# Use vertical profile
+useVP=false
 
