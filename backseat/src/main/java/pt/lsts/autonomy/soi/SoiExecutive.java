@@ -92,6 +92,8 @@ public class SoiExecutive extends TimedFSM {
     public boolean split = false;
     @Parameter(description = "Use vertical profile as the data profiler")
     public boolean useVP = true;
+    @Parameter(description = "Sample to send for meters covered")
+    public double space_resolution = 360.0;
 
     private Plan plan = new Plan("idle");
     private int secs_no_comms = 0;
@@ -102,6 +104,8 @@ public class SoiExecutive extends TimedFSM {
     // bearing to keep doing after completing plan! (in degrees)
     private double desiredBearing = 0;
     private boolean deadlineReached = false;
+    private double distanceTraveled = 0;
+    private double[] lastPosition = null;
     // Starting position of plan.
     private double[] startPos = null;
 
@@ -121,7 +125,8 @@ public class SoiExecutive extends TimedFSM {
             print("Deadline reached. Surfacing to communicate.");
             txtMessages.add("INFO: Deadline reached.");
 
-            int numSamples = 5;
+            // Scale number of profile samples by distance traveled (1 sample per 100m, min 2, max 20)
+            int numSamples = Math.max(2, Math.min(10, (int) (distanceTraveled / space_resolution)));
             print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
             if (upSal) {
                 profiles.addAll(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples));
@@ -623,6 +628,7 @@ public class SoiExecutive extends TimedFSM {
      */
     private FSMState checkTransitions() {
         secs_no_comms++;
+        updateDistanceTraveled();
 
         if (offlineForTooLong()) {
             String err = "Offline for too long (" + secs_no_comms + ")";
@@ -639,6 +645,18 @@ public class SoiExecutive extends TimedFSM {
         }
 
         return null;
+    }
+
+    private void updateDistanceTraveled() {
+        EstimatedState estate = get(EstimatedState.class);
+        if (estate == null) {
+            return;
+        }
+        double[] pos = WGS84Utilities.toLatLonDepth(estate);
+        if (lastPosition != null) {
+            distanceTraveled += WGS84Utilities.distance(lastPosition[0], lastPosition[1], pos[0], pos[1]);
+        }
+        lastPosition = pos;
     }
 
     /**
@@ -1106,6 +1124,8 @@ public class SoiExecutive extends TimedFSM {
      */
     private void resetDeadline() {
         deadlineReached = false;
+        distanceTraveled = 0;
+        lastPosition = null;
         deadline = new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000);
         String txtDeadline = "INFO: Execution will end by " + deadline;
         txtMessages.add(txtDeadline);
