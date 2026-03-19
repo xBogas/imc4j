@@ -99,9 +99,12 @@ public class SoiExecutive extends TimedFSM {
     private int secs_underwater = 0;
     private int wpt_index = 0;
 
-    // DesiredHeading to keep doing after completing plan! (in degrees)
-    private double desiredHeading = 0;
+    // bearing to keep doing after completing plan! (in degrees)
+    private double desiredBearing = 0;
     private boolean deadlineReached = false;
+    // Starting position of plan.
+    private double[] startPos = null;
+
     /**
      * Class constructor
      */
@@ -241,7 +244,6 @@ public class SoiExecutive extends TimedFSM {
                 }
                 else {
                     plan = Plan.parse(cmd.plan);
-                    computeDesiredHeading(plan);
                     parseSettings(cmd.settings, reply);
                     resetDeadline(); // Reset deadline so plan can run for the desired timeout!
 
@@ -273,6 +275,7 @@ public class SoiExecutive extends TimedFSM {
                     // ignore waypoints in the past
                     wpt_index = 0;
                     Date now = new Date();
+                    startPos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
 
                     for (; wpt_index < plan.waypoints().size(); wpt_index++) {
                         if (plan.waypoint(wpt_index).getArrivalTime().after(now)) {
@@ -281,6 +284,7 @@ public class SoiExecutive extends TimedFSM {
                         print("Skipping waypoint " + wpt_index + " as it is in the past.");
                     }
 
+                    updateBearing();
                     reply.plan = plan.asImc();
 
                     if (wpt_index != 0) {
@@ -386,43 +390,30 @@ public class SoiExecutive extends TimedFSM {
     }
 
 
-    double calculateHeading(double[] start, double[] end) {
-
+    double calculateBearing(double[] start, double[] end) {
         double[] diff = WGS84Utilities.WGS84displacement(start[0], start[1], 0, end[0], end[1], 0);
         return Math.toDegrees(Math.atan2(diff[1], diff[0]));
     }
 
-    private void computeDesiredHeading(Plan p) {
+    private void updateBearing() {
 
-        ArrayList<Waypoint> wpts = p.waypoints();
-        int size = wpts.size();
-
-        if (size == 0) {
-            // Edge case - should not happen
-            printError("Invalid plan!");
-            String txt = "ERROR: Plan with no waypoints!";
-            txtMessages.add(txt);
-            return;
-        }
-
-        Waypoint tgt = wpts.get(size - 1);
+        Waypoint tgt = plan.waypoint(wpt_index);
         double[] end_deg = new double[2];
         end_deg[0] = tgt.getLatitude();
         end_deg[1] = tgt.getLongitude();
 
         double[] start_deg;
-        if (size > 1) {
+        if (wpt_index == 0) {
+            start_deg = startPos;
+        }
+        else {
             start_deg = new double[2];
-            Waypoint s = wpts.get(size - 2);
+            Waypoint s = plan.waypoint(wpt_index - 1);
             start_deg[0] = s.getLatitude();
             start_deg[1] = s.getLongitude();
         }
-        else {
-            EstimatedState state = get(EstimatedState.class);
-            start_deg = WGS84Utilities.toLatLonDepth(state);
-        }
 
-        desiredHeading = calculateHeading(start_deg, end_deg);
+        desiredBearing = calculateBearing(start_deg, end_deg);
     }
 
     private void parseSettings(TupleList settings, SoiCommand reply) {
@@ -598,6 +589,30 @@ public class SoiExecutive extends TimedFSM {
         return null;
     }
 
+    private double distanceNextWaypoint() {
+        Waypoint wpt = plan.waypoint(wpt_index);
+        EstimatedState state = get(EstimatedState.class);
+
+        double[] pos = WGS84Utilities.toLatLonDepth(state);
+        return WGS84Utilities.distance(pos[0], pos[1],
+                wpt.getLatitude(), wpt.getLongitude());
+    }
+
+    private boolean passedWaypoint() {
+        if (arrivedXY()) {
+            return true;
+        }
+
+        Waypoint tgt = plan.waypoint(wpt_index);
+        double[] end_deg = new double[2];
+        end_deg[0] = tgt.getLatitude();
+        end_deg[1] = tgt.getLongitude();
+
+        double[] start_deg = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double currBearing = calculateBearing(start_deg, end_deg);
+        return Math.abs(currBearing - desiredBearing) > 90;
+    }
+
     /**
      * Updates the communication timer and evaluates global transition guards.
      * <p>
@@ -616,9 +631,10 @@ public class SoiExecutive extends TimedFSM {
             return this::surface_to_report_error;
         }
 
-        if (arrivedXY()) {
+        if (passedWaypoint()) {
             print("Arrived at waypoint " + wpt_index);
             wpt_index++;
+            updateBearing();
             return this::start_waiting;
         }
 
@@ -701,15 +717,13 @@ public class SoiExecutive extends TimedFSM {
 
     private boolean canCompleteYoYo() {
         try {
-            double[] cur_pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
-            Waypoint wpt = plan.waypoint(wpt_index);
-            double dist = WGS84Utilities.distance(cur_pos[0], cur_pos[1],
-                    wpt.getLatitude(), wpt.getLongitude());
+            double dist = distanceNextWaypoint();
+
             // Rough estimate: horizontal distance for a full yo-yo cycle
             // descent vertical speed ~0.14 m/s, ascent vertical speed ~0.40 m/s
             // Add a 10% error to be conservative
             // TODO: Add parameters for these velocities
-            // TODO: Add a conversion from requested speed to e
+            // TODO: Add a conversion from requested speed to dive and ascend speed
             double yoyoDistance = speed * maxDepth * (1.0 / 0.14 + 1.0 / 0.40) * 1.1;
             if (dist < yoyoDistance) {
                 print("Waypoint " + wpt_index + ": distance " + Math.round(dist)
@@ -815,7 +829,6 @@ public class SoiExecutive extends TimedFSM {
         if (!arrivedZ()) {
             return this::ascend;
         }
-
 
         if (!canCompleteYoYo()) {
             setDepth(minDepth);
