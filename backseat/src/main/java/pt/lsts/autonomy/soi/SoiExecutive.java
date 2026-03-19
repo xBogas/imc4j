@@ -101,6 +101,7 @@ public class SoiExecutive extends TimedFSM {
 
     // DesiredHeading to keep doing after completing plan! (in degrees)
     private double desiredHeading = 0;
+    private boolean deadlineReached = false;
     /**
      * Class constructor
      */
@@ -108,6 +109,28 @@ public class SoiExecutive extends TimedFSM {
         setPlanName(SOI_PLAN_ID);
         setDeadline(new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000));
         state = this::idleAtSurface;
+    }
+
+    @Override
+    protected void onDeadline() {
+        if (!deadlineReached) {
+            deadlineReached = true;
+            print("Deadline reached. Surfacing to communicate.");
+            txtMessages.add("INFO: Deadline reached.");
+
+            int numSamples = 5;
+            print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
+            if (upSal) {
+                profiles.addAll(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples));
+            }
+            if (upTemp) {
+                profiles.addAll(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples));
+            }
+
+            state = this::start_waiting;
+        }
+        // Don't pause — let the FSM keep running to surface and communicate
+        super.update(get(FollowRefState.class));
     }
 
     @FieldChange(field = "useVP")
@@ -922,6 +945,10 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs >= max_wait) {
+            if (deadlineReached) {
+                print("Deadline reached. Communication complete. Waiting for instructions.");
+                return this::idleAtSurface;
+            }
             print("Advancing to next waypoint as maximum time was reached.");
             return this::exec;
         }
@@ -931,6 +958,10 @@ public class SoiExecutive extends TimedFSM {
             if (iridiumStatus != null && iridiumStatus.timestamp > (System.currentTimeMillis() / 1000.0) - 3
                     && iridiumStatus.status == IridiumTxStatus.STATUS.TXSTATUS_EMPTY) {
 
+                if (deadlineReached) {
+                    print("Deadline reached. Communication complete. Waiting for instructions.");
+                    return this::idleAtSurface;
+                }
                 print("Synchronized with server in " + count_secs + " seconds. Advancing to next waypoint.");
                 return this::exec;
             }
@@ -1061,6 +1092,7 @@ public class SoiExecutive extends TimedFSM {
      * Reset watchdog based on timeout parameter
      */
     private void resetDeadline() {
+        deadlineReached = false;
         deadline = new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000);
         String txtDeadline = "INFO: Execution will end by " + deadline;
         txtMessages.add(txtDeadline);
