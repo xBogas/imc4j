@@ -213,6 +213,8 @@ public class SoiExecutive extends TimedFSM {
                 print("CMD: Exec plan!");
                 if (cmd.plan == null || cmd.plan.waypoints.isEmpty()) {
                     plan = null;
+                    reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
+                    break;
                 }
                 else {
                     plan = Plan.parse(cmd.plan);
