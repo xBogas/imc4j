@@ -99,6 +99,8 @@ public class SoiExecutive extends TimedFSM {
     private int secs_underwater = 0;
     private int wpt_index = 0;
 
+    // DesiredHeading to keep doing after completing plan! (in degrees)
+    private double desiredHeading = 0;
     /**
      * Class constructor
      */
@@ -214,6 +216,9 @@ public class SoiExecutive extends TimedFSM {
                 }
                 else {
                     plan = Plan.parse(cmd.plan);
+                    computeDesiredHeading(plan);
+                    parseSettings(cmd.settings, reply);
+                    resetDeadline(); // Reset deadline so plan can run for the desired timeout!
 
                     if (!plan.scheduledInTheFuture()) {
                         EstimatedState s = get(EstimatedState.class);
@@ -272,36 +277,7 @@ public class SoiExecutive extends TimedFSM {
 
             case SOICMD_SET_PARAMS:
                 print("CMD: Set Params!");
-                TupleList oldSettings = params();
-                try {
-                    for (String key : cmd.settings.keys()) {
-                        try {
-                            PojoConfig.setProperty(this, key, cmd.settings.get(key));
-                        }
-                        catch (Exception e) {
-                            printException(e);
-                        }
-                    }
-                    reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
-                    TupleList diffSettings = oldSettings.diff(params());
-
-                    reply.settings = diffSettings;
-
-                    if (diffSettings.keys().isEmpty()) {
-                        reply.info = "no changes";
-                    }
-                    else {
-                        reply.info = "parameters changed";
-                    }
-
-                    saveConfig(CONFIG_FILE);
-                    print("Config saved to " + CONFIG_FILE.getAbsolutePath());
-
-                }
-                catch (Exception e) {
-                    printException(e);
-                }
-
+                parseSettings(cmd.settings, reply);
                 break;
 
             case SOICMD_STOP:
@@ -360,6 +336,7 @@ public class SoiExecutive extends TimedFSM {
 
         // If message is too large to send over Iridium, try to split its settings
         switch (reply.command) {
+            case SOICMD_EXEC:
             case SOICMD_GET_PARAMS:
             case SOICMD_SET_PARAMS:
                 if (reply.serialize().length > MAX_IR_SIZE) {
@@ -380,6 +357,79 @@ public class SoiExecutive extends TimedFSM {
 
         if (doChangeState) {
             state = this::start_waiting;
+        }
+    }
+
+
+    double calculateHeading(double[] start, double[] end) {
+
+        double[] diff = WGS84Utilities.WGS84displacement(start[0], start[1], 0, end[0], end[1], 0);
+        return Math.toDegrees(Math.atan2(diff[1], diff[0]));
+    }
+
+    private void computeDesiredHeading(Plan p) {
+
+        ArrayList<Waypoint> wpts = p.waypoints();
+        int size = wpts.size();
+
+        if (size == 0) {
+            // Edge case - should not happen
+            printError("Invalid plan!");
+            String txt = "ERROR: Plan with no waypoints!";
+            txtMessages.add(txt);
+            return;
+        }
+
+        Waypoint tgt = wpts.get(size - 1);
+        double[] end_deg = new double[2];
+        end_deg[0] = tgt.getLatitude();
+        end_deg[1] = tgt.getLongitude();
+
+        double[] start_deg;
+        if (size > 1) {
+            start_deg = new double[2];
+            Waypoint s = wpts.get(size - 2);
+            start_deg[0] = s.getLatitude();
+            start_deg[1] = s.getLongitude();
+        }
+        else {
+            EstimatedState state = get(EstimatedState.class);
+            start_deg = WGS84Utilities.toLatLonDepth(state);
+        }
+
+        desiredHeading = calculateHeading(start_deg, end_deg);
+    }
+
+    private void parseSettings(TupleList settings, SoiCommand reply) {
+        TupleList oldSettings = params();
+        try {
+            for (String key : settings.keys()) {
+                try {
+                    PojoConfig.setProperty(this, key, settings.get(key));
+                }
+                catch (Exception e) {
+                    printException(e);
+                }
+            }
+
+            reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
+            TupleList diffSettings = oldSettings.diff(params());
+
+            reply.settings = diffSettings;
+
+            if (diffSettings.keys().isEmpty()) {
+                reply.info = "no changes";
+            }
+            else {
+                reply.info = "parameters changed";
+            }
+
+            saveConfig(CONFIG_FILE);
+            print("Config saved to " + CONFIG_FILE.getAbsolutePath());
+
+        }
+        catch (Exception e) {
+            printException(e);
         }
     }
 
