@@ -22,7 +22,7 @@ hAddr=127.0.0.1
 hPort=6006
 
 #Minutes before termination
-timeout=60000
+timeout=30
 
 #Maximum time without reporting position
 minsOff=15
@@ -39,12 +39,18 @@ cycle=false
 #Speed up before descending
 descRpm=1300
 
-#Upload temperature profiles when idle
-upTemp=true
+#Upload temperature profiles
+upTemp=false
+
+#Upload salinity profiles
+upSal=true
 
 #Align with destination waypoint before going underwater
 align=true
 
-# Use vertical profile
+#Split transects based on maximum offline time
+split=false
+
+#Use vertical profile as the data profiler
 useVP=false
 

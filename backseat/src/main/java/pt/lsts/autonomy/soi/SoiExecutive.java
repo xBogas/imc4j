@@ -71,7 +71,7 @@ public class SoiExecutive extends TimedFSM {
     @Parameter(description = "DUNE Host Port (TCP)")
     public int hPort = 6006;
     @Parameter(description = "Minutes before termination")
-    public int timeout = 600;
+    public int timeout = 30;
     @Parameter(description = "Maximum time without reporting position")
     public int minsOff = 15;
     @Parameter(description = "Maximum time without GPS")
@@ -85,15 +85,13 @@ public class SoiExecutive extends TimedFSM {
     @Parameter(description = "Upload temperature profiles")
     public boolean upTemp = false;
     @Parameter(description = "Upload salinity profiles")
-    public boolean upSal = false;
+    public boolean upSal = true;
     @Parameter(description = "Align with destination waypoint before going underwater")
     public boolean align = true;
     @Parameter(description = "Split transects based on maximum offline time")
     public boolean split = false;
     @Parameter(description = "Use vertical profile as the data profiler")
     public boolean useVP = true;
-    @Parameter(description = "Minimum number of samples to send")
-    public int minSamples = 20;
 
     private Plan plan = new Plan("idle");
     private int secs_no_comms = 0;
