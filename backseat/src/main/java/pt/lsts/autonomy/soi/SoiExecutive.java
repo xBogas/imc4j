@@ -624,6 +624,31 @@ public class SoiExecutive extends TimedFSM {
         return wpt == null;
     }
 
+    private boolean canCompleteYoYo() {
+        try {
+            double[] cur_pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+            Waypoint wpt = plan.waypoint(wpt_index);
+            double dist = WGS84Utilities.distance(cur_pos[0], cur_pos[1],
+                    wpt.getLatitude(), wpt.getLongitude());
+            // Rough estimate: horizontal distance for a full yo-yo cycle
+            // descent vertical speed ~0.14 m/s, ascent vertical speed ~0.40 m/s
+            // Add a 10% error to be conservative
+            // TODO: Add parameters for these velocities
+            // TODO: Add a conversion from requested speed to e
+            double yoyoDistance = speed * maxDepth * (1.0 / 0.14 + 1.0 / 0.40) * 1.1;
+            if (dist < yoyoDistance) {
+                print("Waypoint " + wpt_index + ": distance " + Math.round(dist)
+                        + " m < yo-yo needs " + Math.round(yoyoDistance)
+                        + " m. Staying at minDepth.");
+                return false;
+            }
+        }
+        catch (Exception e) {
+            printException(e);
+        }
+        return true;
+    }
+
     private void setAndInformEndOfPlan() {
         String txtDeadline = "INFO: Finished plan execution. Waiting instructions.";
         txtMessages.add(txtDeadline);
@@ -707,61 +732,19 @@ public class SoiExecutive extends TimedFSM {
             return next;
         }
 
-        if (target_depth <= 0 || arrivedZ() && isUnderwater()) {
-            return this::ascend;
-        }
-
         if (secs_no_comms / 60 >= minsOff) {
             print("Periodic surface");
             return this::start_waiting;
         }
 
-        if (maxDepth != target_depth) {
-            print("Now descending (disconnected for " + secs_no_comms + " seconds).");
-            ArrayList<Message> salProf = null, tempProf = null;
+        if (!arrivedZ()) {
+            return this::ascend;
+        }
 
-            int nSamples = Math.min((int) maxDepth, minSamples);
-            if (!useVP) {
-                nSamples = minSamples;
-            }
 
-            try {
-                salProf = salProfiler.getProfile(PARAMETER.PROF_SALINITY, nSamples);
-                tempProf = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, nSamples);
-            }
-            catch (Exception e) {
-                print(e.getClass().getSimpleName() + " while calculating profile: " + e.getMessage());
-            }
-
-            if (tempProf != null) {
-                if (upTemp) {
-                    profiles.addAll(tempProf);
-                    print("Added temperature profile with " + tempProf.size() + " samples");
-                }
-
-                if (useVP) { // For compatibility
-                    VerticalProfile vp = (VerticalProfile) tempProf.get(0);
-                    FSMState newState = onTemperatureProfile(vp);
-                    if (newState != null) {
-                        return newState;
-                    }
-                }
-            }
-
-            if (salProf != null) {
-                if (upSal) {
-                    profiles.addAll(salProf);
-                    print("Added salinity profile with " + salProf.size() + " samples");
-                }
-
-                if (useVP) { // For compatibility
-                    VerticalProfile vp = (VerticalProfile) salProf.get(0);
-                    FSMState newState = onSalinityProfile(vp);
-                    if (newState != null) {
-                        return newState;
-                    }
-                }
-            }
+        if (!canCompleteYoYo()) {
+            setDepth(minDepth);
+            return this::ascend;
         }
 
         if (isUnderwater()) {
@@ -801,6 +784,10 @@ public class SoiExecutive extends TimedFSM {
 
         // go underwater only if aligned with destination
         if (ang_diff < ANGLE_DIFF_DEGS) {
+            if (!canCompleteYoYo()) {
+                setDepth(minDepth);
+                return this::ascend;
+            }
             setDepth(maxDepth);
             return this::dive;
         }
