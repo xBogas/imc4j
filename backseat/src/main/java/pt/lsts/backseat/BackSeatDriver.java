@@ -550,24 +550,28 @@ public abstract class BackSeatDriver extends TcpClient {
 		return request;
 	}
 
-	protected void sendViaIridium(Message msg, int ttl) {
+	protected List<Integer> sendViaIridium(Message msg, int ttl) {
 		List<TransmissionRequest> requestList = inlineMsgRequest(msg, TransmissionRequest.COMM_MEAN.CMEAN_SATELLITE, ttl);
 		if (requestList.size() > 1) {
 			print(">>>>>>>>>>>> Sending "+msg.abbrev()+" over Iridium: "+requestList.size()+" parts");
 		}
 
-		try {
+        List<Integer> reqs = new ArrayList<>();
+        try {
 			StringBuilder rqstIdsString = new StringBuilder();
 			for (TransmissionRequest request : requestList) {
 				send(request);
 				iridiumTransmissions.put(request.req_id, request);
 				rqstIdsString.append(request.req_id).append(", ");
+                reqs.add(request.req_id);
 			}
 			print("Request to send " + msg.abbrev() + " over Iridium: " + rqstIdsString.toString());
 		}
 		catch (Exception e) {
 			print("Could not transmit Iridium message: "+e.getMessage());
 		}
+
+        return reqs;
 	}
 
 	protected void sendViaIridium(String text, int ttl) {
