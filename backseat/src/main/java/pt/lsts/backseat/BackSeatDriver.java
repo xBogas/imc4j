@@ -199,6 +199,15 @@ public abstract class BackSeatDriver extends TcpClient {
 		}
 	}
 
+    public boolean atSurface() {
+        try {
+            return get(VehicleMedium.class).medium == MEDIUM.VM_WATER;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
 	public boolean hasGps() {
 		try {
 			return get(GpsFix.class).validity.contains(GpsFix.VALIDITY.GFV_VALID_POS);
