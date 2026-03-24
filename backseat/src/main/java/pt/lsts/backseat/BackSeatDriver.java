@@ -494,18 +494,30 @@ public abstract class BackSeatDriver extends TcpClient {
 		case TSTAT_MAYBE_DELIVERED:
 		case TSTAT_RANGE_RECEIVED:
 			print("Request " + status.req_id + " has been transmitted: " + status.status+" / "+status.info);
-			iridiumTransmissions.remove(status.req_id);
+            TransmissionRequest ok = iridiumTransmissions.remove(status.req_id);
+            if (ok != null)
+                onTransmissionSuccess(ok);
 			break;
 		case TSTAT_INPUT_FAILURE:
 		case TSTAT_TEMPORARY_FAILURE:
 		case TSTAT_PERMANENT_FAILURE:
 			print("Request " + status.req_id + " could not be transmitted: " + status.status+" / "+status.info);
-			iridiumTransmissions.remove(status.req_id);
+            TransmissionRequest err = iridiumTransmissions.remove(status.req_id);
+            if (err != null)
+                onTransmissionFailed(err);
 			break;
 		default:
 			break;
 		}
 	}
+
+    protected void onTransmissionSuccess(TransmissionRequest treq) {
+
+    }
+
+    protected void onTransmissionFailed(TransmissionRequest treq) {
+
+    }
 
 	protected List<TransmissionRequest> inlineMsgRequest(Message msg, TransmissionRequest.COMM_MEAN mean, int ttl) {
 		ArrayList<TransmissionRequest> ret = new ArrayList<>();
