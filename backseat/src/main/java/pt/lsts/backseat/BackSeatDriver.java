@@ -165,15 +165,13 @@ public abstract class BackSeatDriver extends TcpClient {
 
     public boolean arrivedXY() {
         FollowRefState refState = get(FollowRefState.class);
-        EstimatedState state = get(EstimatedState.class);
+        double[] lld = getPosition();
 
-        if (refState == null || refState.reference == null || state == null) {
+        if (refState == null || refState.reference == null || lld == null) {
             return false;
         }
 
         // check if vehicle is actually near the destination
-        double lld[] = WGS84Utilities.toLatLonDepth(state);
-
         double dist = WGS84Utilities.distance(lld[0], lld[1], Math.toDegrees(reference.lat),
                 Math.toDegrees(reference.lon));
         if (dist > MAX_NEAR_DIST) {
@@ -304,7 +302,7 @@ public abstract class BackSeatDriver extends TcpClient {
 
     private void startExecution() {
 
-        double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] pos = getPosition();
         setLocation(pos[0], pos[1]);
 
         PlanControl pc = new PlanControl();
@@ -438,6 +436,19 @@ public abstract class BackSeatDriver extends TcpClient {
         int id = MessageFactory.idOf(clazz.getSimpleName());
         synchronized (state) {
             return (T) state.get(id);
+        }
+    }
+
+    public double[] getPosition() {
+        try {
+            EstimatedState state = get(EstimatedState.class);
+            if (state == null) {
+                return null;
+            }
+            return WGS84Utilities.toLatLonDepth(state);
+        }
+        catch (Exception e) {
+            return null;
         }
     }
 
