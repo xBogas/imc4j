@@ -736,6 +736,40 @@ public class SoiExecutive extends TimedFSM {
         lastPosition = pos;
     }
 
+    public FSMState startCyclePlan() {
+        print("Starting over (cyclic)...");
+        wpt_index = 0;
+        plan.removeSchedule();
+        double[] pos = getPosition();
+        if (pos != null) {
+            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, minsOff * 60);
+        }
+        else {
+            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, minsOff * 60);
+        }
+
+        if (plan.getETA().after(deadline)) {
+            int timeDiff = (int) ((plan.getETA().getTime() - deadline.getTime()) / 1000.0);
+            String err =
+                    "Cycled. Deadline would be reached " + timeDiff + " seconds before the end of the plan";
+            printError(err);
+            plan = null;
+            txtMessages.add(err);
+            return this::idleAtSurface;
+        }
+
+        SoiCommand reply = new SoiCommand();
+        reply.command = SoiCommand.COMMAND.SOICMD_GET_PLAN;
+        reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
+        reply.src = remoteSrc;
+        reply.dst = 0xFFFF;
+        reply.plan = plan.asImc();
+        reply.info = "Restart cycled plan.";
+        replies.add(reply);
+
+        return this::start_waiting;
+    }
+
     /**
      * Execute the next waypoint
      */
@@ -750,41 +784,10 @@ public class SoiExecutive extends TimedFSM {
         if (wpt == null) {
             print("Finished executing plan.");
             if (cycle && plan != null) {
-                print("Starting over (cyclic)...");
-                wpt_index = 0;
-                plan.removeSchedule();
-                double[] pos = getPosition();
-                if (pos != null) {
-                    plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, minsOff * 60);
-                }
-                else {
-                    plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, minsOff * 60);
-                }
-
-                if (plan.getETA().after(deadline)) {
-                    int timeDiff = (int) ((plan.getETA().getTime() - deadline.getTime()) / 1000.0);
-                    String err =
-                            "Cycled. Deadline would be reached " + timeDiff + " seconds before the end of the plan";
-                    printError(err);
-                    plan = null;
-                    txtMessages.add(err);
-                    return this::idleAtSurface;
-                }
-
-                SoiCommand reply = new SoiCommand();
-                reply.command = SoiCommand.COMMAND.SOICMD_GET_PLAN;
-                reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
-                reply.src = remoteSrc;
-                reply.dst = 0xFFFF;
-                reply.plan = plan.asImc();
-                reply.info = "Restart cycled plan.";
-                replies.add(reply);
-
-                return this::start_waiting;
+                return startCyclePlan();
             }
-            else {
-                return this::idleAtSurface;
-            }
+
+            return this::idleAtSurface;
         }
 
         print("Executing wpt " + wpt_index);
