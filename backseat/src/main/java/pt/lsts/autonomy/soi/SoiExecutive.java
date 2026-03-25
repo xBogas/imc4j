@@ -146,7 +146,6 @@ public class SoiExecutive extends TimedFSM {
             state = this::endOfDeadline;
             deadline = null;
         }
-        // Don't pause — let the FSM keep running to surface and communicate
         super.update(get(FollowRefState.class));
     }
 
@@ -1048,7 +1047,7 @@ public class SoiExecutive extends TimedFSM {
         VehicleMedium medium = get(VehicleMedium.class);
 
         // arrived at surface
-        if (medium != null && medium.medium != VehicleMedium.MEDIUM.VM_UNDERWATER) {
+        if (atSurface()) {
             print("Starting communications.");
             secs_no_comms = 0;
             count_secs = 0;
@@ -1072,9 +1071,8 @@ public class SoiExecutive extends TimedFSM {
             return this::surface_to_report_error;
         }
 
-        VehicleMedium medium = get(VehicleMedium.class);
         // arrived at surface
-        if (medium != null && medium.medium != VehicleMedium.MEDIUM.VM_UNDERWATER) {
+        if (atSurface()) {
             print("Now at surface, starting communications.");
             double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
             setLocation(pos[0], pos[1]);
