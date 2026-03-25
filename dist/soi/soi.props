@@ -31,7 +31,13 @@ minsOff=15
 minsUnder=3
 
 #Seconds to idle at each vertex
-wptSecs=2
+wptSecs=10
+
+#Maximum seconds to wait at each vertex
+wptMaxWait=15
+
+#Distance to consider waypoint was reached
+wptDst=50.0
 
 #Cyclic execution
 cycle=false

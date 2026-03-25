@@ -83,6 +83,8 @@ public class SoiExecutive extends TimedFSM {
     public int wptSecs = 60;
     @Parameter(description = "Maximum seconds to wait at each vertex")
     public int wptMaxWait = 90;
+    @Parameter(description = "Distance to consider waypoint was reached")
+    public double wptDst = 50.0;
     @Parameter(description = "Cyclic execution")
     public boolean cycle = false;
     @Parameter(description = "Speed up before descending")
@@ -669,7 +671,7 @@ public class SoiExecutive extends TimedFSM {
     }
 
     private boolean arrivedWaypoint(Waypoint wpt) {
-        return distanceWaypoint(wpt) < 50.0;
+        return distanceWaypoint(wpt) < wptDst;
     }
 
     private boolean hasPassedWaypoint(Waypoint tgt) {
