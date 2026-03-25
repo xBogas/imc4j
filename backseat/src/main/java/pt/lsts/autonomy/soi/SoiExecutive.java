@@ -127,7 +127,7 @@ public class SoiExecutive extends TimedFSM {
     protected void onDeadline() {
         deadlineReached = true;
         // Go to surface
-        double[] deadlinePosition = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] deadlinePosition = getPosition();
         setLocation(deadlinePosition[0], deadlinePosition[1]);
         setDepth(0);
 
@@ -265,9 +265,8 @@ public class SoiExecutive extends TimedFSM {
                 resetDeadline(); // Reset deadline so plan can run for the desired timeout!
 
                 if (!plan.scheduledInTheFuture()) {
-                    EstimatedState s = get(EstimatedState.class);
-                    if (s != null) {
-                        double[] pos = WGS84Utilities.toLatLonDepth(s);
+                    double[] pos = getPosition();
+                    if (pos != null) {
                         plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, split ?
                                 minsOff * 60 : 0);
                     }
@@ -632,7 +631,7 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState idleAtSurface(FollowRefState state) {
         printFSMState();
-        double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] pos = getPosition();
         setLocation(pos[0], pos[1]);
         setDepth(0);
         return this::idle;
@@ -664,8 +663,7 @@ public class SoiExecutive extends TimedFSM {
             return 0;
         }
 
-        EstimatedState state = get(EstimatedState.class);
-        double[] pos = WGS84Utilities.toLatLonDepth(state);
+        double[] pos = getPosition();
         return WGS84Utilities.distance(pos[0], pos[1],
                 wpt.getLatitude(), wpt.getLongitude());
     }
@@ -683,7 +681,7 @@ public class SoiExecutive extends TimedFSM {
         end_deg[0] = tgt.getLatitude();
         end_deg[1] = tgt.getLongitude();
 
-        double[] start_deg = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] start_deg = getPosition();
         double currBearing = calculateBearing(start_deg, end_deg);
         return Math.abs(currBearing - desiredBearing) > 90;
     }
@@ -726,11 +724,10 @@ public class SoiExecutive extends TimedFSM {
     }
 
     private void updateDistanceTraveled() {
-        EstimatedState estate = get(EstimatedState.class);
-        if (estate == null) {
+        double[] pos = getPosition();
+        if (pos == null) {
             return;
         }
-        double[] pos = WGS84Utilities.toLatLonDepth(estate);
         if (lastPosition != null) {
             distanceTraveled += WGS84Utilities.distance(lastPosition[0], lastPosition[1], pos[0], pos[1]);
         }
@@ -754,9 +751,8 @@ public class SoiExecutive extends TimedFSM {
                 print("Starting over (cyclic)...");
                 wpt_index = 0;
                 plan.removeSchedule();
-                EstimatedState s = get(EstimatedState.class);
-                if (s != null) {
-                    double[] pos = WGS84Utilities.toLatLonDepth(s);
+                double[] pos = getPosition();
+                if (pos != null) {
                     plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, minsOff * 60);
                 }
                 else {
@@ -871,7 +867,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         try {
-            double[] cur_pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+            double[] cur_pos = getPosition();
             double[] target_pos = new double[]{plan.waypoint(wpt_index).getLatitude(),
                     plan.waypoint(wpt_index).getLongitude()};
 
@@ -986,7 +982,7 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState dive(FollowRefState ref) {
         printFSMState();
-        double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] pos = getPosition();
 
         FSMState next = checkTransitions();
         if (next != null) {
@@ -1085,7 +1081,7 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState start_waiting(FollowRefState ref) {
         printFSMState();
-        double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] pos = getPosition();
         setLocation(pos[0], pos[1]);
         setDepth(0);
         setSpeed(speed, SpeedUnits.METERS_PS);
@@ -1099,7 +1095,7 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState surface_to_report_error(FollowRefState ref) {
         printFSMState();
-        double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        double[] pos = getPosition();
         setLocation(pos[0], pos[1]);
         setDepth(0);
         setSpeed(0, SpeedUnits.METERS_PS);
@@ -1144,7 +1140,7 @@ public class SoiExecutive extends TimedFSM {
         // arrived at surface
         if (atSurface()) {
             print("Now at surface, starting communications.");
-            double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+            double[] pos = getPosition();
             setLocation(pos[0], pos[1]);
             secs_no_comms = 0;
             count_secs = 0;
@@ -1167,7 +1163,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         else if (wpt.getArrivalTime() != null) {
-            double[] pos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+            double[] pos = getPosition();
             double dist = WGS84Utilities.distance(wpt.getLatitude(), wpt.getLongitude(), pos[0], pos[1]);
             double secs = (wpt.getArrivalTime().getTime() - System.currentTimeMillis()) / 1000.0;
 
