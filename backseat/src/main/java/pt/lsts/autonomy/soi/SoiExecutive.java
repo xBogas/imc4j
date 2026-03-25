@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 
@@ -54,6 +55,7 @@ public class SoiExecutive extends TimedFSM {
     final private ArrayList<String> txtMessages = new ArrayList<>();
     final private ArrayList<SoiCommand> replies = new ArrayList<>();
     final private ArrayList<Message> profiles = new ArrayList<>();
+    final private HashSet<Integer> pendingProfileTransmissions = new HashSet<>();
     private DataProfiler<Temperature> tempProfiler;
     private DataProfiler<Salinity> salProfiler;
 
@@ -589,6 +591,43 @@ public class SoiExecutive extends TimedFSM {
         else {
             secs_underwater = 0;
         }
+    }
+
+    @Override
+    protected void onTransmissionSuccess(TransmissionRequest treq) {
+        pendingProfileTransmissions.remove(treq.req_id);
+    }
+
+    @Override
+    protected void onTransmissionFailed(TransmissionRequest treq) {
+        pendingProfileTransmissions.remove(treq.req_id);
+
+        if (treq.msg_data != null && treq.msg_data.mgid() == VerticalProfile.ID_STATIC) {
+            print("Retrying to send vertical profile");
+            List<Integer> reqIds = sendViaIridium(treq.msg_data, 60);
+            pendingProfileTransmissions.addAll(reqIds);
+        }
+    }
+
+    public FSMState endOfDeadline(FollowRefState state) {
+        printFSMState();
+
+        if (atSurface()) {
+            // Send all pending vertical profiles via Iridium and track their request IDs
+            while (!profiles.isEmpty()) {
+                Message profile = profiles.remove(profiles.size() - 1);
+                List<Integer> reqIds = sendViaIridium(profile, 120);
+                pendingProfileTransmissions.addAll(reqIds);
+            }
+
+            // Transition only when every profile transmission has been confirmed
+            if (pendingProfileTransmissions.isEmpty()) {
+                print("All profile transmissions confirmed. Transitioning to wait.");
+                return this::start_waiting;
+            }
+        }
+
+        return this::endOfDeadline;
     }
 
     /**
