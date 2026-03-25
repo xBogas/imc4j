@@ -117,7 +117,7 @@ public class SoiExecutive extends TimedFSM {
      */
     public SoiExecutive() {
         setPlanName(SOI_PLAN_ID);
-        setDeadline(new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000));
+        deadline = null;
         state = this::idleAtSurface;
     }
 
@@ -256,59 +256,74 @@ public class SoiExecutive extends TimedFSM {
                     reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
                     break;
                 }
-                else {
-                    plan = Plan.parse(cmd.plan);
-                    parseSettings(cmd.settings, reply);
-                    resetDeadline(); // Reset deadline so plan can run for the desired timeout!
 
-                    if (!plan.scheduledInTheFuture()) {
-                        EstimatedState s = get(EstimatedState.class);
-                        if (s != null) {
-                            double[] pos = WGS84Utilities.toLatLonDepth(s);
-                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, split ?
-                                    minsOff * 60 : 0);
-                        }
-                        else {
-                            plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, split ? minsOff
-                                    * 60 : 0);
-                        }
-                    }
-
-                    if (plan.getETA().after(deadline)) {
-                        int timeDiff = (int) ((plan.getETA().getTime() - deadline.getTime()) / 1000.0);
-                        String err = "Deadline would be reached " + timeDiff + " seconds before the end of the plan";
-                        printError(err);
-                        plan = null;
-                        txtMessages.add(err);
-                        reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
-                        reply.plan = null;
-                        reply.info = "Deadline would be reached before " + timeDiff + " seconds";
-                        break;
-                    }
-
-                    // ignore waypoints in the past
-                    wpt_index = 0;
-                    Date now = new Date();
-                    startPos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
-
-                    for (; wpt_index < plan.waypoints().size(); wpt_index++) {
-                        if (plan.waypoint(wpt_index).getArrivalTime().after(now)) {
-                            break;
-                        }
-                        print("Skipping waypoint " + wpt_index + " as it is in the past.");
-                    }
-
-                    updateBearing();
-                    reply.plan = plan.asImc();
-
-                    if (wpt_index != 0) {
-                        reply.info = "Skipped to waypoint " + wpt_index;
-                    }
-
-                    print("Start executing this plan:");
-                    print("" + plan);
-                    print("Plan serialization size is " + reply.serialize().length);
+                plan = Plan.parse(cmd.plan);
+                parseSettings(cmd.settings, reply);
+                if (paused) {
+                    setPaused(false);
+                    doChangeState = false;
                 }
+                resetDeadline(); // Reset deadline so plan can run for the desired timeout!
+
+                if (!plan.scheduledInTheFuture()) {
+                    EstimatedState s = get(EstimatedState.class);
+                    if (s != null) {
+                        double[] pos = WGS84Utilities.toLatLonDepth(s);
+                        plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, pos[0], pos[1], speed, split ?
+                                minsOff * 60 : 0);
+                    }
+                    else {
+                        plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, split ? minsOff
+                                * 60 : 0);
+                    }
+                }
+
+                // if (plan.getETA().after(deadline)) {
+                //     int timeDiff = (int) ((plan.getETA().getTime() - de\adline.getTime()) / 1000.0);
+                //     String err = "Deadline would be reached " + timeDiff + " seconds before the end of the plan";
+                //     printError(err);
+                //     plan = null;
+                //     txtMessages.add(err);
+                //     reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
+                //     reply.plan = null;
+                //     reply.info = "Deadline would be reached before " + timeDiff + " seconds";
+                //     break;
+                // }
+
+                // ignore waypoints in the past
+                wpt_index = 0;
+                Date now = new Date();
+                startPos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+                updateBearing();
+
+                for (; wpt_index < plan.waypoints().size(); wpt_index++) {
+
+                    if (reachedWaypoint(plan.waypoint(wpt_index))) {
+                        updateBearing();
+                        print("Skipping waypoint " + wpt_index + " - already passed");
+                        continue;
+                    }
+
+                    if (plan.waypoint(wpt_index).getArrivalTime().before(now)) {
+                        print("Skipping waypoint " + wpt_index + " as it is in the past.");
+                        continue;
+                    }
+
+                    break;
+                }
+
+                if (wpt_index != 0) {
+                    reply.info = "Skipped to waypoint " + wpt_index;
+                }
+
+                if (plan.waypoint(wpt_index) == null) {
+                    print("Skipped to waypoint " + wpt_index);
+                    System.exit(1);
+                }
+
+                print("Start executing this plan:");
+                print("" + plan);
+                print("Plan serialization size is " + reply.serialize().length);
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
                 break;
 
@@ -345,7 +360,7 @@ public class SoiExecutive extends TimedFSM {
 
             case SOICMD_RESUME:
                 print("CMD: Resume execution!");
-                resetDeadline();
+//                resetDeadline();
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
                 if (paused) {
                     setPaused(false);
@@ -412,6 +427,11 @@ public class SoiExecutive extends TimedFSM {
     private void updateBearing() {
 
         Waypoint tgt = plan.waypoint(wpt_index);
+        // Plan ended
+        if (tgt == null) {
+            return;
+        }
+
         double[] end_deg = new double[2];
         end_deg[0] = tgt.getLatitude();
         end_deg[1] = tgt.getLongitude();
