@@ -125,30 +125,27 @@ public class SoiExecutive extends TimedFSM {
 
     @Override
     protected void onDeadline() {
-        if (!deadlineReached) {
-            deadlineReached = true;
+        deadlineReached = true;
+        // Go to surface
+        double[] deadlinePosition = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+        setLocation(deadlinePosition[0], deadlinePosition[1]);
+        setDepth(0);
 
-            // Go to surface
-            double[] deadlinePosition = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
-            setLocation(deadlinePosition[0], deadlinePosition[1]);
-            setDepth(0);
+        print("Deadline reached. Surfacing to communicate.");
+        txtMessages.add("INFO: Deadline reached.");
 
-            print("Deadline reached. Surfacing to communicate.");
-            txtMessages.add("INFO: Deadline reached.");
-
-            // Scale number of profile samples by distance traveled (1 sample per 100m, min 2, max 20)
-            int numSamples = Math.max(2, Math.min(10, (int) (distanceTraveled / space_resolution)));
-            print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
-            if (upSal) {
-                profiles.addAll(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples));
-            }
-            if (upTemp) {
-                profiles.addAll(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples));
-            }
-
-            state = this::endOfDeadline;
-            deadline = null;
+        // Scale number of profile samples by distance traveled (1 sample per 100m, min 2, max 20)
+        int numSamples = Math.max(2, Math.min(10, (int) (distanceTraveled / space_resolution)));
+        print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
+        if (upSal) {
+            profiles.addAll(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples));
         }
+        if (upTemp) {
+            profiles.addAll(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples));
+        }
+
+        state = this::endOfDeadline;
+        deadline = null;
         super.update(get(FollowRefState.class));
     }
 
