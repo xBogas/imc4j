@@ -21,6 +21,7 @@ import pt.lsts.imc4j.msg.Salinity;
 import pt.lsts.imc4j.msg.SoiCommand;
 import pt.lsts.imc4j.msg.StateReport;
 import pt.lsts.imc4j.msg.Temperature;
+import pt.lsts.imc4j.msg.TransmissionRequest;
 import pt.lsts.imc4j.msg.VehicleMedium;
 import pt.lsts.imc4j.msg.VerticalProfile;
 import pt.lsts.imc4j.msg.VerticalProfile.PARAMETER;
@@ -602,21 +603,26 @@ public class SoiExecutive extends TimedFSM {
         return null;
     }
 
-    private double distanceNextWaypoint() {
-        Waypoint wpt = plan.waypoint(wpt_index);
-        EstimatedState state = get(EstimatedState.class);
+    private double distanceWaypoint(Waypoint wpt) {
+        if (wpt == null) {
+            return 0;
+        }
 
+        EstimatedState state = get(EstimatedState.class);
         double[] pos = WGS84Utilities.toLatLonDepth(state);
         return WGS84Utilities.distance(pos[0], pos[1],
                 wpt.getLatitude(), wpt.getLongitude());
     }
 
-    private boolean passedWaypoint() {
-        if (arrivedXY()) {
+    private boolean arrivedWaypoint(Waypoint wpt) {
+        return distanceWaypoint(wpt) < 50.0;
+    }
+
+    private boolean hasPassedWaypoint(Waypoint tgt) {
+        if (tgt == null) {
             return true;
         }
 
-        Waypoint tgt = plan.waypoint(wpt_index);
         double[] end_deg = new double[2];
         end_deg[0] = tgt.getLatitude();
         end_deg[1] = tgt.getLongitude();
@@ -624,6 +630,14 @@ public class SoiExecutive extends TimedFSM {
         double[] start_deg = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
         double currBearing = calculateBearing(start_deg, end_deg);
         return Math.abs(currBearing - desiredBearing) > 90;
+    }
+
+    private boolean reachedWaypoint(Waypoint wpt) {
+        if (arrivedWaypoint(wpt)) {
+            return true;
+        }
+
+        return hasPassedWaypoint(wpt);
     }
 
     /**
@@ -645,7 +659,7 @@ public class SoiExecutive extends TimedFSM {
             return this::surface_to_report_error;
         }
 
-        if (passedWaypoint()) {
+        if (reachedWaypoint(plan.waypoint(wpt_index))) {
             print("Arrived at waypoint " + wpt_index);
             wpt_index++;
             updateBearing();
@@ -743,7 +757,7 @@ public class SoiExecutive extends TimedFSM {
 
     private boolean canCompleteYoYo() {
         try {
-            double dist = distanceNextWaypoint();
+            double dist = distanceWaypoint(plan.waypoint(wpt_index));
 
             // Rough estimate: horizontal distance for a full yo-yo cycle
             // descent vertical speed ~0.14 m/s, ascent vertical speed ~0.40 m/s
