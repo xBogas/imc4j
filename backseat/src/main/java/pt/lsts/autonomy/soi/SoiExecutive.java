@@ -78,6 +78,8 @@ public class SoiExecutive extends TimedFSM {
     public int minsUnder = 3;
     @Parameter(description = "Seconds to idle at each vertex")
     public int wptSecs = 60;
+    @Parameter(description = "Maximum seconds to wait at each vertex")
+    public int wptMaxWait = 90;
     @Parameter(description = "Cyclic execution")
     public boolean cycle = false;
     @Parameter(description = "Speed up before descending")
@@ -141,7 +143,7 @@ public class SoiExecutive extends TimedFSM {
                 profiles.addAll(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples));
             }
 
-            state = this::start_waiting;
+            state = this::endOfDeadline;
             deadline = null;
         }
         // Don't pause — let the FSM keep running to surface and communicate
@@ -947,7 +949,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         int min_wait = wptSecs;
-        int max_wait = wptSecs * 3;
+        int max_wait = wptMaxWait;
 
         // Send "DUNE" report at communication start
         if (count_secs == 0) {
