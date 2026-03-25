@@ -122,6 +122,12 @@ public class SoiExecutive extends TimedFSM {
     protected void onDeadline() {
         if (!deadlineReached) {
             deadlineReached = true;
+
+            // Go to surface
+            double[] deadlinePosition = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+            setLocation(deadlinePosition[0], deadlinePosition[1]);
+            setDepth(0);
+
             print("Deadline reached. Surfacing to communicate.");
             txtMessages.add("INFO: Deadline reached.");
 
@@ -136,6 +142,7 @@ public class SoiExecutive extends TimedFSM {
             }
 
             state = this::start_waiting;
+            deadline = null;
         }
         // Don't pause — let the FSM keep running to surface and communicate
         super.update(get(FollowRefState.class));
