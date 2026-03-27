@@ -260,6 +260,18 @@ public abstract class BackSeatDriver extends TcpClient {
         }
     }
 
+    public boolean hasGps(double ageSeconds) {
+        try {
+            GpsFix fix = get(GpsFix.class);
+            boolean validPos = fix.validity.contains(GpsFix.VALIDITY.GFV_VALID_POS);
+            boolean validAge = (System.currentTimeMillis() / 1000.0 - fix.timestamp) < ageSeconds;
+            return validPos && validAge;
+        }
+        catch (Exception e) {
+            return false;
+        }
+    }
+
     @Consume
     protected void on(Message msg) {
         if (msg.src == remoteSrc) {
