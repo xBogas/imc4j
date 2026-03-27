@@ -812,7 +812,9 @@ public class SoiExecutive extends TimedFSM {
         return wpt == null;
     }
 
-    private boolean canCompleteYoYo() {
+    private boolean incompleteYoYo() {
+
+        // TODO add time check within deadline!
         try {
             double dist = distanceWaypoint(plan.waypoint(wpt_index));
 
@@ -826,13 +828,13 @@ public class SoiExecutive extends TimedFSM {
                 print("Waypoint " + wpt_index + ": distance " + Math.round(dist)
                         + " m < yo-yo needs " + Math.round(yoyoDistance)
                         + " m. Staying at minDepth.");
-                return false;
+                return true;
             }
         }
         catch (Exception e) {
             printException(e);
         }
-        return true;
+        return false;
     }
 
     private void setAndInformEndOfPlan() {
@@ -927,8 +929,8 @@ public class SoiExecutive extends TimedFSM {
             return this::ascend;
         }
 
-        if (!canCompleteYoYo()) {
-            setDepth(minDepth);
+        if (incompleteYoYo()) {
+            setDepth(0);
             return this::ascend;
         }
 
@@ -969,8 +971,8 @@ public class SoiExecutive extends TimedFSM {
 
         // go underwater only if aligned with destination
         if (ang_diff < ANGLE_DIFF_DEGS) {
-            if (!canCompleteYoYo()) {
-                setDepth(minDepth);
+            if (incompleteYoYo()) {
+                setDepth(0);
                 return this::ascend;
             }
             setDepth(maxDepth);
