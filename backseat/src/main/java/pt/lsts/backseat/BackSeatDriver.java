@@ -661,7 +661,7 @@ public abstract class BackSeatDriver extends TcpClient {
         return reqs;
     }
 
-    protected void sendViaIridium(String text, int ttl) {
+    protected Integer sendViaIridium(String text, int ttl) {
         TransmissionRequest request = txtMessageRequest(text, TransmissionRequest.COMM_MEAN.CMEAN_SATELLITE, ttl);
         try {
             send(request);
@@ -670,7 +670,10 @@ public abstract class BackSeatDriver extends TcpClient {
         }
         catch (Exception e) {
             print("Error while trying to send Iridium request: " + e.getMessage());
+            return -1;
         }
+
+        return request.req_id;
     }
 
     protected void sendViaSms(String text, int ttl) {
