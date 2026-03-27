@@ -319,11 +319,6 @@ public class SoiExecutive extends TimedFSM {
                     reply.info = "Skipped to waypoint " + wpt_index;
                 }
 
-                if (plan.waypoint(wpt_index) == null) {
-                    print("Skipped to waypoint " + wpt_index);
-                    System.exit(1);
-                }
-
                 print("Start executing this plan:");
                 print("" + plan);
                 print("Plan serialization size is " + reply.serialize().length);
