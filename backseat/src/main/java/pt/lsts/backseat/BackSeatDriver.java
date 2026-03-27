@@ -196,6 +196,32 @@ public abstract class BackSeatDriver extends TcpClient {
         return refState.proximity.contains(FollowRefState.PROXIMITY.PROX_Z_NEAR);
     }
 
+    /**
+     * Returns true if the vehicle has reached the target depth within the given tolerance.
+     * <p>
+     * If {@code distance} is negative, delegates to {@link #arrivedZ()} and uses DUNE's
+     * {@link FollowRefState.PROXIMITY#PROX_Z_NEAR} flag as the arrival criterion. Otherwise, checks whether the
+     * vehicle's current depth from {@link EstimatedState} has descended at least {@code distance} meters past the
+     * target {@code depth}.
+     *
+     * @param depth    target depth in meters
+     * @param distance tolerance in meters; if negative, falls back to {@link #arrivedZ()}
+     * @return true if the vehicle is within tolerance of the target depth, false if state is unavailable
+     */
+    public boolean arrivedDepth(double depth, double distance) {
+        if (distance < 0.0) {
+            return arrivedZ();
+        }
+
+        EstimatedState estimatedState = get(EstimatedState.class);
+        if (estimatedState == null) {
+            return false;
+        }
+
+        double delta_depth = estimatedState.depth - depth;
+        return delta_depth >= distance;
+    }
+
     public boolean isUnderwater() {
         try {
             return get(VehicleMedium.class).medium == MEDIUM.VM_UNDERWATER;
