@@ -115,6 +115,8 @@ public class SoiExecutive extends TimedFSM {
     private double[] lastPosition = null;
     // Starting position of plan.
     private double[] startPos = null;
+    // seconds at the surface
+    private long secs_surface = 0;
 
     /**
      * Class constructor
@@ -583,12 +585,8 @@ public class SoiExecutive extends TimedFSM {
 
     @Consume
     public final void on(VehicleMedium medium) {
-        if (medium.medium == VehicleMedium.MEDIUM.VM_UNDERWATER) {
-            secs_underwater++;
-        }
-        else {
-            secs_underwater = 0;
-        }
+        secs_underwater = (medium.medium == VehicleMedium.MEDIUM.VM_UNDERWATER) ? secs_underwater + 1 : 0;
+        secs_surface = (medium.medium == VehicleMedium.MEDIUM.VM_WATER) ? secs_surface + 1 : 0;
     }
 
     @Override
