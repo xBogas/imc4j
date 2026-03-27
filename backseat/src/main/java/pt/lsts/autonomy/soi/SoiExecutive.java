@@ -713,7 +713,14 @@ public class SoiExecutive extends TimedFSM {
             return this::surface_to_report_error;
         }
 
-        if (reachedWaypoint(plan.waypoint(wpt_index))) {
+
+        // No GPS for too long and not waiting for a new GPS signal
+        if (!hasGps(minsUnder * 60) && state != (FSMState) this::getGPS) {
+            print("No GPS for too long (" + secs_no_comms + ")");
+            return this::getGPS;
+        }
+
+        if (hasPassedWaypoint(wpt_index)) {
             print("Arrived at waypoint " + wpt_index);
             wpt_index++;
             updateBearing();
@@ -1093,6 +1100,68 @@ public class SoiExecutive extends TimedFSM {
 
         print("Surfacing...");
         return this::wait;
+    }
+
+    /**
+     * Critical error recovery state: vehicle spent more than 10 seconds at the surface without a valid GPS fix in
+     * {@link #getGPS}.
+     * <p>
+     * On the first tick, sends an error text message via SMS and Iridium and dispatches a {@link StateReport}. Then
+     * waits for all Iridium transmissions to be confirmed
+     * <b>and</b> for {@link #hasGps(double)} to return true before resuming execution.
+     */
+    public FSMState criticalError(FollowRefState ref) {
+        printFSMState();
+
+        if (count_secs == 0) {
+            pendingTransmissions.clear();
+            String errorMsg = "Error: 10 secs at Surface with no GPS!";
+            print(errorMsg);
+            sendViaSms(errorMsg, 5);
+            Integer txtID = sendViaIridium(errorMsg, 5);
+            pendingTransmissions.add(txtID);
+            List<Integer> reqIds = sendViaIridium(createStateReport(), 5);
+            pendingTransmissions.addAll(reqIds);
+        }
+
+        count_secs++;
+
+        boolean transmitted = pendingTransmissions.isEmpty();
+        boolean gpsAcquired = hasGps(minsUnder * 60);
+
+        if (transmitted && gpsAcquired) {
+            print("Error reported and GPS fix acquired. Resuming execution...");
+            count_secs = 0;
+            return this::exec;
+        }
+
+        return this::criticalError;
+    }
+
+    // Keep going to waypoint but go to surface to report Position!
+    public FSMState getGPS(FollowRefState ref) {
+        printFSMState();
+
+        setDepth(0);
+        FSMState next = checkTransitions();
+        if (next != null) {
+            return next;
+        }
+
+        if (secs_surface > 10) {
+            double[] pos = getPosition();
+            // TODO Should StationKeep at current position!
+            setLocation(pos[0], pos[1]);
+            setDepth(0);
+            return this::criticalError;
+        }
+
+        if (hasGps(minsUnder * 60)) {
+            print("Got new valid GPSFix! Resuming executing...");
+            return this::exec;
+        }
+
+        return this::getGPS;
     }
 
     /**
