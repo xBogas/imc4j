@@ -185,6 +185,17 @@ public abstract class BackSeatDriver extends TcpClient {
         return refState.proximity.contains(FollowRefState.PROXIMITY.PROX_XY_NEAR);
     }
 
+    /**
+     * Returns true if the vehicle has reached the vertical (Z) target set in the current reference.
+     * <p>
+     * Uses DUNE's {@link FollowRefState.PROXIMITY#PROX_Z_NEAR} flag, which is set by the FollowReference maneuver
+     * controller when the vehicle is within its configured vertical tolerance of the reference Z value. Also verifies
+     * that the active reference matches the currently commanded Z reference (same units and value) before trusting the
+     * proximity flag.
+     *
+     * @return true if {@code FollowRefState} reports Z proximity for the current reference, false if state is
+     * unavailable or the reference has changed
+     */
     public boolean arrivedZ() {
         FollowRefState refState = get(FollowRefState.class);
         if (refState == null || refState.reference == null || refState.reference.z == null) {
