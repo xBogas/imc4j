@@ -55,7 +55,8 @@ public class SoiExecutive extends TimedFSM {
     final private ArrayList<String> txtMessages = new ArrayList<>();
     final private ArrayList<SoiCommand> replies = new ArrayList<>();
     final private ArrayList<Message> profiles = new ArrayList<>();
-    final private HashSet<Integer> pendingProfileTransmissions = new HashSet<>();
+    // Transmissions that MUST be sent!
+    final private HashSet<Integer> pendingTransmissions = new HashSet<>();
     private DataProfiler<Temperature> tempProfiler;
     private DataProfiler<Salinity> salProfiler;
 
@@ -591,17 +592,17 @@ public class SoiExecutive extends TimedFSM {
 
     @Override
     protected void onTransmissionSuccess(TransmissionRequest treq) {
-        pendingProfileTransmissions.remove(treq.req_id);
+        pendingTransmissions.remove(treq.req_id);
     }
 
     @Override
     protected void onTransmissionFailed(TransmissionRequest treq) {
-        pendingProfileTransmissions.remove(treq.req_id);
+        pendingTransmissions.remove(treq.req_id);
 
-        if (treq.msg_data != null && treq.msg_data.mgid() == VerticalProfile.ID_STATIC) {
-            print("Retrying to send vertical profile");
+        if (treq.msg_data != null) {
+            print("Retrying to send " + treq.msg_data.abbrev());
             List<Integer> reqIds = sendViaIridium(treq.msg_data, 60);
-            pendingProfileTransmissions.addAll(reqIds);
+            pendingTransmissions.addAll(reqIds);
         }
     }
 
@@ -613,11 +614,11 @@ public class SoiExecutive extends TimedFSM {
             while (!profiles.isEmpty()) {
                 Message profile = profiles.remove(profiles.size() - 1);
                 List<Integer> reqIds = sendViaIridium(profile, 120);
-                pendingProfileTransmissions.addAll(reqIds);
+                pendingTransmissions.addAll(reqIds);
             }
 
             // Transition only when every profile transmission has been confirmed
-            if (pendingProfileTransmissions.isEmpty()) {
+            if (pendingTransmissions.isEmpty()) {
                 print("All profile transmissions confirmed. Transitioning to wait.");
                 return this::start_waiting;
             }
@@ -1114,7 +1115,6 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         if (count_secs == 0) {
-            pendingTransmissions.clear();
             String errorMsg = "Error: 10 secs at Surface with no GPS!";
             print(errorMsg);
             sendViaSms(errorMsg, 5);
