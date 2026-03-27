@@ -265,7 +265,6 @@ public class SoiExecutive extends TimedFSM {
                 parseSettings(cmd.settings, reply);
                 if (paused) {
                     setPaused(false);
-                    doChangeState = false;
                 }
                 resetDeadline(); // Reset deadline so plan can run for the desired timeout!
 
@@ -281,27 +280,16 @@ public class SoiExecutive extends TimedFSM {
                     }
                 }
 
-                // if (plan.getETA().after(deadline)) {
-                //     int timeDiff = (int) ((plan.getETA().getTime() - de\adline.getTime()) / 1000.0);
-                //     String err = "Deadline would be reached " + timeDiff + " seconds before the end of the plan";
-                //     printError(err);
-                //     plan = null;
-                //     txtMessages.add(err);
-                //     reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
-                //     reply.plan = null;
-                //     reply.info = "Deadline would be reached before " + timeDiff + " seconds";
-                //     break;
-                // }
-
                 // ignore waypoints in the past
                 wpt_index = 0;
                 Date now = new Date();
-                startPos = WGS84Utilities.toLatLonDepth(get(EstimatedState.class));
+                startPos = getPosition();
                 updateBearing();
 
                 for (; wpt_index < plan.waypoints().size(); wpt_index++) {
 
-                    if (reachedWaypoint(plan.waypoint(wpt_index))) {
+                    Waypoint wp = plan.waypoints().get(wpt_index);
+                    if (arrivedWaypoint(wp) || hasPassedWaypoint(wp)) {
                         updateBearing();
                         print("Skipping waypoint " + wpt_index + " - already passed");
                         continue;
@@ -654,6 +642,10 @@ public class SoiExecutive extends TimedFSM {
         return null;
     }
 
+    private double distanceWaypoint(int idx) {
+        return distanceWaypoint(plan.waypoint(idx));
+    }
+
     private double distanceWaypoint(Waypoint wpt) {
         if (wpt == null) {
             return 0;
@@ -666,6 +658,10 @@ public class SoiExecutive extends TimedFSM {
 
     private boolean arrivedWaypoint(Waypoint wpt) {
         return distanceWaypoint(wpt) < wptDst;
+    }
+
+    private boolean hasPassedWaypoint(int idx) {
+        return hasPassedWaypoint(plan.waypoint(idx));
     }
 
     private boolean hasPassedWaypoint(Waypoint tgt) {
@@ -817,7 +813,7 @@ public class SoiExecutive extends TimedFSM {
 
         // TODO add time check within deadline!
         try {
-            double dist = distanceWaypoint(plan.waypoint(wpt_index));
+            double dist = distanceWaypoint(wpt_index);
 
             // Rough estimate: horizontal distance for a full yo-yo cycle
             // descent vertical speed ~0.14 m/s, ascent vertical speed ~0.40 m/s
@@ -1179,7 +1175,6 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState report_error(FollowRefState ref) {
         printFSMState();
-        VehicleMedium medium = get(VehicleMedium.class);
 
         // arrived at surface
         if (atSurface()) {
