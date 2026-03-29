@@ -12,6 +12,7 @@ import pt.lsts.imc4j.msg.EntityParameters;
 import pt.lsts.imc4j.msg.EstimatedState;
 import pt.lsts.imc4j.msg.FollowRefState;
 import pt.lsts.imc4j.msg.FuelLevel;
+import pt.lsts.imc4j.msg.GpsFix;
 import pt.lsts.imc4j.msg.IridiumTxStatus;
 import pt.lsts.imc4j.msg.Message;
 import pt.lsts.imc4j.msg.PlanControl;
@@ -120,6 +121,8 @@ public class SoiExecutive extends TimedFSM {
     private double[] startPos = null;
     // seconds at the surface
     private long secs_surface = 0;
+
+    private GpsFix valid = null;
 
     /**
      * Class constructor
@@ -392,7 +395,7 @@ public class SoiExecutive extends TimedFSM {
                 }
                 break;
             default:
-                replies.add(reply);
+                imcMessages.add(reply);
                 break;
         }
 
@@ -401,6 +404,19 @@ public class SoiExecutive extends TimedFSM {
         }
     }
 
+    @Consume
+    public final void on(GpsFix fix) {
+
+        if (!fix.validity.contains(GpsFix.VALIDITY.GFV_VALID_POS)) {
+            return;
+        }
+        valid = fix;
+    }
+
+    @Override
+    public boolean hasGps(double ageSeconds) {
+        return (System.currentTimeMillis() / 1000.0 - valid.timestamp) < ageSeconds;
+    }
 
     double calculateBearing(double[] start, double[] end) {
         double[] diff = WGS84Utilities.WGS84displacement(start[0], start[1], 0, end[0], end[1], 0);
@@ -714,7 +730,7 @@ public class SoiExecutive extends TimedFSM {
 
 
         // No GPS for too long and not waiting for a new GPS signal
-        if (!hasGps(minsUnder * 60) && state != (FSMState) this::getGPS) {
+        if (!hasGps(minsUnder * 60) && (state != (FSMState) this::getGPS)) {
             print("No GPS for too long (" + secs_no_comms + ")");
             return this::getGPS;
         }
@@ -1075,6 +1091,56 @@ public class SoiExecutive extends TimedFSM {
         return this::wait;
     }
 
+    /**
+     * Send a {@link StateReport} via Iridium when the vehicle has been offline for too long.
+     * <p>
+     * Entered from {@link #checkTransitions()} when {@code secs_no_comms / 60 > minsOff}. Sends the report on the first
+     * tick, then waits for DUNE to confirm the Iridium transmission was successful before resuming execution.
+     */
+    public FSMState sendPosition(FollowRefState ref) {
+        printFSMState();
+
+        // This should checkTransitions
+        // As there are more critical errors!
+
+        // TODO sendPosition and getGPS are very similar!
+        // Goto surface and send message or getGps signal
+        // Maybe merge this into:
+        // add to transmission queue / event queue -> surface -> send (stay at surface)! -> send complete -> exec
+
+        if (!atSurface()) {
+            count_secs = 0;
+            return this::sendPosition;
+        }
+
+        if (count_secs == 0) {
+            List<Integer> reqIds = sendViaIridium(createStateReport(), 60);
+            pendingTransmissions.addAll(reqIds);
+            print("Position report queued. Waiting for transmission confirmation...");
+        }
+
+        count_secs++;
+
+        if (pendingTransmissions.isEmpty()) {
+            print("Position report transmitted successfully. Resuming execution...");
+            secs_no_comms = 0;
+            count_secs = 0;
+            return this::exec;
+        }
+
+        return this::sendPosition;
+    }
+
+    public FSMState criticalError(FollowRefState ref) {
+        printFSMState();
+
+        double[] pos = getPosition();
+        // TODO Should StationKeep at current position!
+        setLocation(pos[0], pos[1]);
+        setDepth(0);
+        count_secs = 0;
+        return this::reportErrors;
+    }
 
     protected void sendMessages(int ttl, boolean ack) {
         for (String txt : txtMessages) {
