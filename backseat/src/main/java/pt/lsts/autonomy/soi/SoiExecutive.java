@@ -116,7 +116,6 @@ public class SoiExecutive extends TimedFSM {
 
     // bearing to keep doing after completing plan! (in degrees)
     private double desiredBearing = 0;
-    private boolean deadlineReached = false;
     private double distanceTraveled = 0;
     private double[] lastPosition = null;
     // Starting position of plan.
@@ -137,7 +136,6 @@ public class SoiExecutive extends TimedFSM {
 
     @Override
     protected void onDeadline() {
-        deadlineReached = true;
         // Go to surface
         double[] deadlinePosition = getPosition();
         setLocation(deadlinePosition[0], deadlinePosition[1]);
@@ -1042,10 +1040,6 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs >= max_wait) {
-            if (deadlineReached) {
-                print("Deadline reached. Communication complete. Waiting for instructions.");
-                return this::idleAtSurface;
-            }
             print("Advancing to next waypoint as maximum time was reached.");
             return this::exec;
         }
@@ -1054,11 +1048,6 @@ public class SoiExecutive extends TimedFSM {
 
             if (iridiumStatus != null && iridiumStatus.timestamp > (System.currentTimeMillis() / 1000.0) - 3
                     && iridiumStatus.status == IridiumTxStatus.STATUS.TXSTATUS_EMPTY) {
-
-                if (deadlineReached) {
-                    print("Deadline reached. Communication complete. Waiting for instructions.");
-                    return this::idleAtSurface;
-                }
                 print("Synchronized with server in " + count_secs + " seconds. Advancing to next waypoint.");
                 return this::exec;
             }
@@ -1316,7 +1305,6 @@ public class SoiExecutive extends TimedFSM {
      * Reset watchdog based on timeout parameter
      */
     private void resetDeadline() {
-        deadlineReached = false;
         distanceTraveled = 0;
         lastPosition = null;
         deadline = new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000);
