@@ -105,6 +105,8 @@ public class SoiExecutive extends TimedFSM {
     public boolean useVP = true;
     @Parameter(description = "Sample to send for meters covered")
     public double space_resolution = 360.0;
+    @Parameter(description = "Depth tolerance to consider as reached")
+    public double depthTolerance = 0.3;
 
     private Plan plan = new Plan("idle");
     private int secs_no_comms = 0;
@@ -701,14 +703,6 @@ public class SoiExecutive extends TimedFSM {
         return Math.abs(currBearing - desiredBearing) > 90;
     }
 
-    private boolean reachedWaypoint(Waypoint wpt) {
-        if (arrivedWaypoint(wpt)) {
-            return true;
-        }
-
-        return hasPassedWaypoint(wpt);
-    }
-
     /**
      * Updates the communication timer and evaluates global transition guards.
      * <p>
@@ -721,13 +715,20 @@ public class SoiExecutive extends TimedFSM {
         secs_no_comms++;
         updateDistanceTraveled();
 
-        if (offlineForTooLong()) {
-            String err = "Offline for too long (" + secs_no_comms + ")";
-            printError(err);
-            txtMessages.add("ERROR: " + err);
-            return this::surface_to_report_error;
-        }
+//        if (offlineForTooLong()) {
+//            String err = "Offline for too long (" + secs_no_comms + ")";
+//            printError(err);
+//            txtMessages.add("ERROR: " + err);
+//            return this::surface_to_report_error;
+//        }
 
+        //! TODO
+        // Not communicated position for too long
+        if (secs_no_comms / 60 > minsOff) {
+            count_secs = 0;
+            setDepth(0);
+            return this::sendPosition;
+        }
 
         // No GPS for too long and not waiting for a new GPS signal
         if (!hasGps(minsUnder * 60) && (state != (FSMState) this::getGPS)) {
@@ -922,24 +923,14 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState ascend(FollowRefState ref) {
         printFSMState();
-        double target_depth = minDepth;
-        if (minsUnder > 0 && (secs_underwater / 60) >= minsUnder) {
-            target_depth = 0;
-        }
-
-        setDepth(target_depth);
+        setDepth(minDepth);
 
         FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
 
-        if (secs_no_comms / 60 >= minsOff) {
-            print("Periodic surface");
-            return this::start_waiting;
-        }
-
-        if (!arrivedZ()) {
+        if (!arrivedDepth(minDepth, depthTolerance)) {
             return this::ascend;
         }
 
