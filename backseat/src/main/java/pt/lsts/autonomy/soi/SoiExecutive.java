@@ -21,6 +21,7 @@ import pt.lsts.imc4j.msg.Salinity;
 import pt.lsts.imc4j.msg.SoiCommand;
 import pt.lsts.imc4j.msg.StateReport;
 import pt.lsts.imc4j.msg.Temperature;
+import pt.lsts.imc4j.msg.TextMessage;
 import pt.lsts.imc4j.msg.TransmissionRequest;
 import pt.lsts.imc4j.msg.VehicleMedium;
 import pt.lsts.imc4j.msg.VerticalProfile;
@@ -33,6 +34,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -53,7 +55,7 @@ public class SoiExecutive extends TimedFSM {
     private static final int ANGLE_DIFF_DEGS = 5;
     protected static File CONFIG_FILE = null;
     final private ArrayList<String> txtMessages = new ArrayList<>();
-    final private ArrayList<SoiCommand> replies = new ArrayList<>();
+    final private ArrayList<Message> imcMessages = new ArrayList<>();
     final private ArrayList<Message> profiles = new ArrayList<>();
     // Transmissions that MUST be sent!
     final private HashSet<Integer> pendingTransmissions = new HashSet<>();
@@ -227,7 +229,7 @@ public class SoiExecutive extends TimedFSM {
             reply.dst = 0xFFFF;
             reply.plan = null;
             reply.info = "Paused execution. Waiting for instructions.";
-            replies.add(reply);
+            imcMessages.add(reply);
             sendViaIridium(reply, (int) Duration.ofMinutes(5).toMinutes());
         }
     }
@@ -276,7 +278,7 @@ public class SoiExecutive extends TimedFSM {
                     }
                     else {
                         plan.scheduleWaypoints(System.currentTimeMillis(), wptSecs, speed, split ? minsOff
-                                * 60 : 0);
+                                                                                                   * 60 : 0);
                     }
                 }
 
@@ -371,12 +373,7 @@ public class SoiExecutive extends TimedFSM {
 
         print("Replying with " + reply);
 
-        try {
-            send(reply);
-        }
-        catch (Exception e) {
-            printException(e);
-        }
+        trySend(reply);
 
         // If message is too large to send over Iridium, try to split its settings
         switch (reply.command) {
@@ -388,10 +385,10 @@ public class SoiExecutive extends TimedFSM {
                     if (cmds == null) {
                         return;
                     }
-                    replies.addAll(cmds);
+                    imcMessages.addAll(cmds);
                 }
                 else {
-                    replies.add(reply);
+                    imcMessages.add(reply);
                 }
                 break;
             default:
@@ -589,16 +586,26 @@ public class SoiExecutive extends TimedFSM {
         }
     }
 
+    public void trySend(Message msg) {
+        try {
+            send(msg);
+        }
+        catch (IOException e) {
+            printException(e);
+        }
+    }
+
     public FSMState endOfDeadline(FollowRefState state) {
         printFSMState();
 
         if (atSurface()) {
             // Send all pending vertical profiles via Iridium and track their request IDs
-            while (!profiles.isEmpty()) {
-                Message profile = profiles.remove(profiles.size() - 1);
-                List<Integer> reqIds = sendViaIridium(profile, 120);
+            for (Message prof : profiles) {
+                trySend(prof);
+                List<Integer> reqIds = sendViaIridium(prof, 120);
                 pendingTransmissions.addAll(reqIds);
             }
+            profiles.clear();
 
             // Transition only when every profile transmission has been confirmed
             if (pendingTransmissions.isEmpty()) {
@@ -762,7 +769,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = plan.asImc();
         reply.info = "Restart cycled plan.";
-        replies.add(reply);
+        imcMessages.add(reply);
 
         return this::start_waiting;
     }
@@ -847,15 +854,9 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = null;
         reply.info = "Finished plan execution. Waiting instructions.";
-        replies.add(reply);
+        imcMessages.add(reply);
 
-        try {
-            // Send to save on DUNE log
-            send(reply);
-        }
-        catch (Exception e) {
-            printException(e);
-        }
+        trySend(reply);
     }
 
     /**
@@ -1027,30 +1028,10 @@ public class SoiExecutive extends TimedFSM {
             sendReport(itfs);
             sendViaIridium(createStateReport(), max_wait - count_secs - 1);
             print("Will wait from " + min_wait + " to " + max_wait + " seconds to send " + txtMessages.size()
-                    + " texts, " + replies.size() + " command replies and " + profiles.size() + " profiles.");
+                    + " texts, " + imcMessages.size() + " imc messages and " + profiles.size() + " profiles.");
         }
         else {
-            while (!replies.isEmpty()) {
-                SoiCommand cmd = replies.get(0);
-                print("Replying to command using Iridium: " + cmd);
-                sendViaIridium(cmd, max_wait - count_secs - 1);
-                replies.remove(0);
-            }
-
-            while (!txtMessages.isEmpty()) {
-                String txt = txtMessages.get(0);
-                if (txt.length() > 132) {
-                    txt = txt.substring(0, 132);
-                }
-                sendViaSms(txt, max_wait - count_secs - 1);
-                sendViaIridium(txt, max_wait - count_secs - 1);
-                txtMessages.remove(0);
-            }
-
-            while (!profiles.isEmpty()) {
-                sendViaIridium(profiles.get(profiles.size() - 1), max_wait - count_secs - 1);
-                profiles.remove(profiles.get(profiles.size() - 1));
-            }
+            sendMessages(max_wait - count_secs - 1, false);
         }
 
         if (count_secs >= max_wait) {
@@ -1094,6 +1075,36 @@ public class SoiExecutive extends TimedFSM {
         return this::wait;
     }
 
+
+    protected void sendMessages(int ttl, boolean ack) {
+        for (String txt : txtMessages) {
+            // TODO: Why was this 132?
+            if (txt.length() > 132) {
+                txt = txt.substring(0, 132);
+            }
+            sendViaSms(txt, ttl);
+            Integer txtID = sendViaIridium(txt, ttl);
+            TextMessage tmsg = new TextMessage();
+            tmsg.origin = "Soi-exec"; // TODO: Add system name
+            tmsg.text = txt;
+            trySend(tmsg);
+
+            if (ack) {
+                pendingTransmissions.add(txtID);
+            }
+        }
+        txtMessages.clear();
+
+        for (Message msg : imcMessages) {
+            List<Integer> reqIds = sendViaIridium(msg, ttl);
+            trySend(msg);
+            if (ack) {
+                pendingTransmissions.addAll(reqIds);
+            }
+        }
+        imcMessages.clear();
+    }
+
     /**
      * Critical error recovery state: vehicle spent more than 10 seconds at the surface without a valid GPS fix in
      * {@link #getGPS}.
@@ -1106,13 +1117,8 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         if (count_secs == 0) {
-            String errorMsg = "Error: 10 secs at Surface with no GPS!";
-            print(errorMsg);
-            sendViaSms(errorMsg, 5);
-            Integer txtID = sendViaIridium(errorMsg, 5);
-            pendingTransmissions.add(txtID);
-            List<Integer> reqIds = sendViaIridium(createStateReport(), 5);
-            pendingTransmissions.addAll(reqIds);
+            imcMessages.add(createStateReport());
+            sendMessages(60, true);
         }
 
         count_secs++;
@@ -1140,10 +1146,9 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (secs_surface > 10) {
-            double[] pos = getPosition();
-            // TODO Should StationKeep at current position!
-            setLocation(pos[0], pos[1]);
-            setDepth(0);
+            String errorMsg = "Error: 10 secs at Surface with no GPS!";
+            print(errorMsg);
+            txtMessages.add(errorMsg);
             return this::criticalError;
         }
 
@@ -1194,12 +1199,6 @@ public class SoiExecutive extends TimedFSM {
     public FSMState wait(FollowRefState ref) {
         printFSMState();
         secs_no_comms++;
-        if (offlineForTooLong()) {
-            String err = "Offline for too long (" + secs_no_comms + ")";
-            printError(err);
-            txtMessages.add("ERROR: " + err);
-            return this::surface_to_report_error;
-        }
 
         // arrived at surface
         if (atSurface()) {
