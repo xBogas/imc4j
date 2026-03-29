@@ -230,7 +230,7 @@ public abstract class BackSeatDriver extends TcpClient {
         }
 
         double delta_depth = estimatedState.depth - depth;
-        return delta_depth >= distance;
+        return delta_depth <= distance;
     }
 
     public boolean isUnderwater() {
