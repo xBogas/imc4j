@@ -208,7 +208,7 @@ public class SoiExecutive extends TimedFSM {
                 printError(err);
                 txtMessages.add("ERROR: " + pControl.info);
                 print("Ascending for report");
-                state = this::surface_to_report_error;
+                state = this::criticalError;
             }
         }
 
@@ -626,7 +626,7 @@ public class SoiExecutive extends TimedFSM {
             // Transition only when every profile transmission has been confirmed
             if (pendingTransmissions.isEmpty()) {
                 print("All profile transmissions confirmed. Transitioning to wait.");
-                return this::start_waiting;
+                return this::idleAtSurface;
             }
         }
 
@@ -713,13 +713,6 @@ public class SoiExecutive extends TimedFSM {
         secs_no_comms++;
         updateDistanceTraveled();
 
-//        if (offlineForTooLong()) {
-//            String err = "Offline for too long (" + secs_no_comms + ")";
-//            printError(err);
-//            txtMessages.add("ERROR: " + err);
-//            return this::surface_to_report_error;
-//        }
-
         //! TODO
         // Not communicated position for too long
         if (secs_no_comms / 60 > minsOff) {
@@ -729,7 +722,8 @@ public class SoiExecutive extends TimedFSM {
         }
 
         // No GPS for too long and not waiting for a new GPS signal
-        if (!hasGps(minsUnder * 60) && (state != (FSMState) this::getGPS)) {
+        FSMState getGPS = this::getGPS;
+        if (!hasGps(minsUnder * 60) && (state != getGPS)) {
             print("No GPS for too long (" + secs_no_comms + ")");
             return this::getGPS;
         }
@@ -1159,8 +1153,12 @@ public class SoiExecutive extends TimedFSM {
      * waits for all Iridium transmissions to be confirmed
      * <b>and</b> for {@link #hasGps(double)} to return true before resuming execution.
      */
-    public FSMState criticalError(FollowRefState ref) {
+    public FSMState reportErrors(FollowRefState ref) {
         printFSMState();
+
+        if (!atSurface()) {
+            return this::reportErrors;
+        }
 
         if (count_secs == 0) {
             imcMessages.add(createStateReport());
@@ -1178,7 +1176,7 @@ public class SoiExecutive extends TimedFSM {
             return this::exec;
         }
 
-        return this::criticalError;
+        return this::reportErrors;
     }
 
     // Keep going to waypoint but go to surface to report Position!
@@ -1287,18 +1285,6 @@ public class SoiExecutive extends TimedFSM {
 
         print("Setting speed according to ETA: " + speed + " m/s.");
         setSpeed(speed, SpeedUnits.METERS_PS);
-    }
-
-    /**
-     * Check if the vehicle has been disconnected for too long
-     *
-     * @return <code>true</code> if the vehicle has been more than
-     * <code>mins_offline</code> minutes disconnected.
-     */
-    public boolean offlineForTooLong() {
-        // Check if it has taken too long to go at the surface...
-        int max_time = minsOff * 60 * 2;
-        return secs_no_comms > max_time;
     }
 
     /**
