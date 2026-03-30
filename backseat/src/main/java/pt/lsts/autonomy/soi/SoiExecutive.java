@@ -730,9 +730,8 @@ public class SoiExecutive extends TimedFSM {
 
         if (hasPassedWaypoint(wpt_index)) {
             print("Arrived at waypoint " + wpt_index);
-            wpt_index++;
             updateBearing();
-            return this::start_waiting;
+            return this::onWaypoint;
         }
 
         return null;
@@ -800,6 +799,8 @@ public class SoiExecutive extends TimedFSM {
                 return startCyclePlan();
             }
 
+            plan = null;
+            wpt_index = 0;
             return this::idleAtSurface;
         }
 
@@ -853,9 +854,6 @@ public class SoiExecutive extends TimedFSM {
     private void setAndInformEndOfPlan() {
         String txtDeadline = "INFO: Finished plan execution. Waiting instructions.";
         txtMessages.add(txtDeadline);
-        wpt_index = 0;
-        this.plan = null;
-
         SoiCommand reply = new SoiCommand();
         reply.command = SoiCommand.COMMAND.SOICMD_GET_PLAN;
         reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
@@ -1051,6 +1049,45 @@ public class SoiExecutive extends TimedFSM {
 
     }
 
+    public FSMState surfaceWaypoint(FollowRefState ref) {
+        printFSMState();
+
+        if (distanceWaypoint(wpt_index) < 3.0) {
+            setDepth(0);
+        }
+
+        if (atSurface()) {
+            if (hasPassedWaypoint(wpt_index)) {
+                double[] pos = getPosition();
+                setLocation(pos[0], pos[1]);
+            }
+
+            wpt_index++; // Now can go to next waypoint!
+            return this::communicate;
+        }
+
+        return this::surfaceWaypoint;
+    }
+
+    public FSMState onWaypoint(FollowRefState ref) {
+        printFSMState();
+
+        Waypoint wpt = plan.waypoint(wpt_index);
+        if (atSurface() && hasPassedWaypoint(wpt)) {
+            // If waypoint was passed stay at the current position to communicate
+            double[] pos = getPosition();
+            setLocation(pos[0], pos[1]);
+        }
+        else {
+            setLocation(wpt.getLatitude(), wpt.getLongitude());
+        }
+
+        setDepth(0);
+
+        print("Surfacing at waypoint ...");
+        return this::surfaceWaypoint;
+    }
+
     /**
      * Request the vehicle to (actively) go at the surface
      */
@@ -1202,39 +1239,6 @@ public class SoiExecutive extends TimedFSM {
         }
 
         return this::getGPS;
-    }
-
-    /**
-     * Stop the motor and start waiting to float to the surface
-     */
-    public FSMState surface_to_report_error(FollowRefState ref) {
-        printFSMState();
-        double[] pos = getPosition();
-        setLocation(pos[0], pos[1]);
-        setDepth(0);
-        setSpeed(0, SpeedUnits.METERS_PS);
-
-        print("Surfacing to report error...");
-
-        return this::report_error;
-    }
-
-    /**
-     * Wait to arrive at the surface before communications
-     */
-    public FSMState report_error(FollowRefState ref) {
-        printFSMState();
-
-        // arrived at surface
-        if (atSurface()) {
-            print("Starting communications.");
-            secs_no_comms = 0;
-            count_secs = 0;
-            return this::communicate;
-        }
-        else {
-            return this::report_error;
-        }
     }
 
     /**
