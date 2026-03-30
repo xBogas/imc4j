@@ -376,8 +376,6 @@ public class SoiExecutive extends TimedFSM {
 
         print("Replying with " + reply);
 
-        trySend(reply);
-
         // If message is too large to send over Iridium, try to split its settings
         switch (reply.command) {
             case SOICMD_EXEC:
@@ -619,7 +617,6 @@ public class SoiExecutive extends TimedFSM {
         if (atSurface()) {
             // Send all pending vertical profiles via Iridium and track their request IDs
             for (Message prof : profiles) {
-                trySend(prof);
                 List<Integer> reqIds = sendViaIridium(prof, 120);
                 pendingTransmissions.addAll(reqIds);
             }
@@ -864,8 +861,6 @@ public class SoiExecutive extends TimedFSM {
         reply.plan = null;
         reply.info = "Finished plan execution. Waiting instructions.";
         imcMessages.add(reply);
-
-        trySend(reply);
     }
 
     /**
@@ -1163,6 +1158,8 @@ public class SoiExecutive extends TimedFSM {
             }
             sendViaSms(txt, ttl);
             Integer txtID = sendViaIridium(txt, ttl);
+
+            // Send message to DUNE LOG
             TextMessage tmsg = new TextMessage();
             tmsg.origin = "Soi-exec"; // TODO: Add system name
             tmsg.text = txt;
@@ -1176,7 +1173,6 @@ public class SoiExecutive extends TimedFSM {
 
         for (Message msg : imcMessages) {
             List<Integer> reqIds = sendViaIridium(msg, ttl);
-            trySend(msg);
             if (ack) {
                 pendingTransmissions.addAll(reqIds);
             }
