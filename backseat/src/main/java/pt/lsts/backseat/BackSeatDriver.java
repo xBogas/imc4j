@@ -575,13 +575,13 @@ public abstract class BackSeatDriver extends TcpClient {
         print("Iridium transmission status changed: " + status);
         switch (status.status) {
             case TSTAT_DELIVERED:
-            case TSTAT_MAYBE_DELIVERED:
-            case TSTAT_RANGE_RECEIVED:
                 print("Request " + status.req_id + " has been transmitted: " + status.status + " / " + status.info);
                 TransmissionRequest ok = iridiumTransmissions.remove(status.req_id);
                 if (ok != null) {
                     onTransmissionSuccess(ok);
                 }
+            case TSTAT_MAYBE_DELIVERED:
+            case TSTAT_RANGE_RECEIVED:
                 break;
             case TSTAT_INPUT_FAILURE:
             case TSTAT_TEMPORARY_FAILURE:
