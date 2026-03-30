@@ -1125,7 +1125,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs == 0) {
-            List<Integer> reqIds = sendViaIridium(createStateReport(), 60);
+            List<Integer> reqIds = sendViaIridium(createStateReport(), 10);
             pendingTransmissions.addAll(reqIds);
             print("Position report queued. Waiting for transmission confirmation...");
         }
