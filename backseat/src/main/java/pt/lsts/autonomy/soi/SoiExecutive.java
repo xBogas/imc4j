@@ -647,6 +647,10 @@ public class SoiExecutive extends TimedFSM {
      */
     public FSMState idle(FollowRefState state) {
         printFSMState();
+
+        if (atSurface())
+            sendMessages(10, false);
+
         FSMState newState = onIdle();
         return newState != null ? newState : this::idle;
     }
@@ -790,7 +794,6 @@ public class SoiExecutive extends TimedFSM {
         }
 
         Waypoint wpt = plan.waypoint(wpt_index);
-
         if (wpt == null) {
             print("Finished executing plan.");
             if (cycle && plan != null) {
@@ -1160,7 +1163,7 @@ public class SoiExecutive extends TimedFSM {
 
             // Send message to DUNE LOG
             TextMessage tmsg = new TextMessage();
-            tmsg.origin = "Soi-exec"; // TODO: Add system name
+            tmsg.origin = "Soi-exec";
             tmsg.text = txt;
             trySend(tmsg);
 
