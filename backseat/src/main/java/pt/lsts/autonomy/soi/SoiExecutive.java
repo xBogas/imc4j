@@ -367,7 +367,6 @@ public class SoiExecutive extends TimedFSM {
                         reply.info = "is executing " + wpt_index + " of " + plan.waypoints().size() + "; ";
                     }
                 }
-                reply.info += "new deadline in " + timeout + " minutes";
                 break;
             default:
                 reply.info = "Unknown command";
