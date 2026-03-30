@@ -60,3 +60,9 @@ split=false
 #Use vertical profile as the data profiler
 useVP=false
 
+#Sample to send for meters covered
+space_resolution=120.0
+
+#Depth tolerance to consider as reached
+depthTolerance=0.3
+
