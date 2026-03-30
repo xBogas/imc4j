@@ -593,7 +593,9 @@ public class SoiExecutive extends TimedFSM {
 
     @Override
     protected void onTransmissionFailed(TransmissionRequest treq) {
-        pendingTransmissions.remove(treq.req_id);
+        if (!pendingTransmissions.remove(treq.req_id)) {
+            return;
+        }
 
         if (treq.msg_data != null) {
             print("Retrying to send " + treq.msg_data.abbrev());
