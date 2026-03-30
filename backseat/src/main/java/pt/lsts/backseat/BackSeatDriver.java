@@ -645,6 +645,9 @@ public abstract class BackSeatDriver extends TcpClient {
 
         List<Integer> reqs = new ArrayList<>();
         try {
+            // Send msg to LOG
+            send(msg);
+
             StringBuilder rqstIdsString = new StringBuilder();
             for (TransmissionRequest request : requestList) {
                 send(request);
