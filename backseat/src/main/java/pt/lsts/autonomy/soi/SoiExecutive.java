@@ -156,12 +156,23 @@ public class SoiExecutive extends TimedFSM {
         int numSamples = Math.max(2, Math.min(10, (int) (distanceTraveled / space_resolution)));
         print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
         if (upSal) {
-            profiles.addAll(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples));
+            queueMessages(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples), true);
         }
         if (upTemp) {
-            profiles.addAll(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples));
+            queueMessages(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples), true);
         }
 
+        SoiCommand cmd = new SoiCommand();
+        cmd.command = SoiCommand.COMMAND.SOICMD_GET_PLAN;
+        cmd.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
+        cmd.plan = null;
+        cmd.src = remoteSrc;
+        cmd.dst = 0xFFFF;
+        cmd.info = "Deadline Reached!";
+        queueMessage(cmd, true);
+
+        plan = null;
+        wpt_index = 0;
         state = this::endOfDeadline;
         deadline = null;
         super.update(get(FollowRefState.class));
@@ -173,7 +184,7 @@ public class SoiExecutive extends TimedFSM {
         tempProfiler = useVP ? new DepthBinnedProfiler<>() : new SubsamplingProfiler<>();
         salProfiler = useVP ? new DepthBinnedProfiler<>() : new SubsamplingProfiler<>();
 
-        String text = String.format("Using %s profiler", useVP ? "Depth binner" : "Subsampling");
+        String text = String.format("Using %s profiler", useVP ? "Depth bin" : "Subsampling");
         print(text);
     }
 
@@ -296,13 +307,10 @@ public class SoiExecutive extends TimedFSM {
                 wpt_index = 0;
                 Date now = new Date();
                 startPos = getPosition();
-                updateBearing();
-
                 for (; wpt_index < plan.waypoints().size(); wpt_index++) {
 
                     Waypoint wp = plan.waypoints().get(wpt_index);
                     if (arrivedWaypoint(wp) || hasPassedWaypoint(wp)) {
-                        updateBearing();
                         print("Skipping waypoint " + wpt_index + " - already passed");
                         continue;
                     }
