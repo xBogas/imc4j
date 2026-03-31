@@ -628,19 +628,18 @@ public class SoiExecutive extends TimedFSM {
     public FSMState endOfDeadline(FollowRefState state) {
         printFSMState();
 
-        if (atSurface()) {
-            // Send all pending vertical profiles via Iridium and track their request IDs
-            for (Message prof : profiles) {
-                List<Integer> reqIds = sendViaIridium(prof, 120);
-                pendingTransmissions.addAll(reqIds);
-            }
-            profiles.clear();
+        if (!atSurface()) {
+            setDepth(0);
+            return this::endOfDeadline;
+        }
 
-            // Transition only when every profile transmission has been confirmed
-            if (pendingTransmissions.isEmpty()) {
-                print("All profile transmissions confirmed. Transitioning to wait.");
-                return this::idleAtSurface;
-            }
+        // Send all pending messages via Iridium and track their request IDs
+        sendMessages(60);
+
+        // Transition only when every profile transmission has been confirmed
+        if (pendingTransmissions.isEmpty()) {
+            print("All profile transmissions confirmed. Transitioning to wait.");
+            return this::idleAtSurface;
         }
 
         return this::endOfDeadline;
@@ -654,6 +653,7 @@ public class SoiExecutive extends TimedFSM {
         double[] pos = getPosition();
         setLocation(pos[0], pos[1]);
         setDepth(0);
+        setSpeed(speed, SpeedUnits.METERS_PS);
         return this::idle;
     }
 
@@ -663,8 +663,9 @@ public class SoiExecutive extends TimedFSM {
     public FSMState idle(FollowRefState state) {
         printFSMState();
 
-        if (atSurface())
-            sendMessages(10, false);
+        if (atSurface()) {
+            sendMessages(30);
+        }
 
         FSMState newState = onIdle();
         return newState != null ? newState : this::idle;
@@ -755,8 +756,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (hasPassedWaypoint(wpt_index)) {
-            print("Arrived at waypoint " + wpt_index);
-            updateBearing();
+            print("Passed waypoint " + wpt_index);
             return this::onWaypoint;
         }
 
