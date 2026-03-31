@@ -949,7 +949,7 @@ public class SoiExecutive extends TimedFSM {
 
         if (incompleteYoYo()) {
             setDepth(0);
-            return this::ascend;
+            return this::keepSurface;
         }
 
         if (isUnderwater()) {
@@ -960,6 +960,22 @@ public class SoiExecutive extends TimedFSM {
         }
 
         return this::dive;
+    }
+
+    public FSMState keepSurface(FollowRefState ref) {
+        printFSMState();
+        setDepth(0);
+
+        FSMState next = checkTransitions();
+        if (next != null) {
+            return next;
+        }
+
+        if (atSurface()) {
+            sendMessages(30);
+        }
+
+        return this::keepSurface;
     }
 
     /**
