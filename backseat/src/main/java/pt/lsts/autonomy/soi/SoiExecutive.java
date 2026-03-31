@@ -1092,36 +1092,22 @@ public class SoiExecutive extends TimedFSM {
     public FSMState surfaceWaypoint(FollowRefState ref) {
         printFSMState();
 
-        if (distanceWaypoint(wpt_index) < 3.0) {
-            setDepth(0);
+        setDepth(0);
+        if (!atSurface()) {
+            return this::surfaceWaypoint;
         }
 
-        if (atSurface()) {
-            if (hasPassedWaypoint(wpt_index)) {
-                double[] pos = getPosition();
-                setLocation(pos[0], pos[1]);
-            }
-
-            wpt_index++; // Now can go to next waypoint!
-            return this::communicate;
-        }
-
-        return this::surfaceWaypoint;
+        wpt_index++;
+        count_secs = 0;
+        return this::communicate;
     }
 
+    /// Waypoint was reached!
     public FSMState onWaypoint(FollowRefState ref) {
         printFSMState();
 
-        Waypoint wpt = plan.waypoint(wpt_index);
-        if (atSurface() && hasPassedWaypoint(wpt)) {
-            // If waypoint was passed stay at the current position to communicate
-            double[] pos = getPosition();
-            setLocation(pos[0], pos[1]);
-        }
-        else {
-            setLocation(wpt.getLatitude(), wpt.getLongitude());
-        }
-
+        double[] pos = getPosition();
+        setLocation(pos[0], pos[1]);
         setDepth(0);
 
         print("Surfacing at waypoint ...");
