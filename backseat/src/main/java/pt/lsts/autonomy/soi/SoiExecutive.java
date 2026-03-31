@@ -124,8 +124,6 @@ public class SoiExecutive extends TimedFSM {
     private int secs_underwater = 0;
     private int wpt_index = 0;
 
-    // bearing to keep doing after completing plan! (in degrees)
-    private double desiredBearing = 0;
     private double distanceTraveled = 0;
     private double[] lastPosition = null;
     // Starting position of plan.
@@ -429,12 +427,11 @@ public class SoiExecutive extends TimedFSM {
         return Math.toDegrees(Math.atan2(diff[1], diff[0]));
     }
 
-    private void updateBearing() {
-
+    private double getDesiredBearing() throws RuntimeException {
         Waypoint tgt = plan.waypoint(wpt_index);
         // Plan ended
         if (tgt == null) {
-            return;
+            throw new RuntimeException("Plan ended!");
         }
 
         double[] end_deg = new double[2];
@@ -452,7 +449,7 @@ public class SoiExecutive extends TimedFSM {
             start_deg[1] = s.getLongitude();
         }
 
-        desiredBearing = calculateBearing(start_deg, end_deg);
+        return calculateBearing(start_deg, end_deg);
     }
 
     private void parseSettings(TupleList settings, SoiCommand reply) {
@@ -708,6 +705,15 @@ public class SoiExecutive extends TimedFSM {
         end_deg[1] = tgt.getLongitude();
 
         double[] start_deg = getPosition();
+        double desiredBearing;
+        try {
+            desiredBearing = getDesiredBearing();
+        }
+        catch (Exception e) {
+            // Plan Ended!
+            return true;
+        }
+
         double currBearing = calculateBearing(start_deg, end_deg);
         return Math.abs(currBearing - desiredBearing) > 90;
     }
