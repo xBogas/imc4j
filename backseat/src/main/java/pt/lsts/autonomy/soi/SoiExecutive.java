@@ -155,10 +155,14 @@ public class SoiExecutive extends TimedFSM {
         int numSamples = Math.max(2, Math.min(10, (int) (distanceTraveled / space_resolution)));
         print("Distance traveled: " + (int) distanceTraveled + "m, sending " + numSamples + " profile samples.");
         if (upSal) {
-            queueMessages(salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples), true);
+            ArrayList<Message> vps = salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples);
+            vps.forEach(vps_ -> vps_.src = remoteSrc);
+            queueMessages(vps, true);
         }
         if (upTemp) {
-            queueMessages(tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples), true);
+            ArrayList<Message> vps = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples);
+            vps.forEach(vps_ -> vps_.src = remoteSrc);
+            queueMessages(vps, true);
         }
 
         SoiCommand cmd = new SoiCommand();
@@ -167,7 +171,7 @@ public class SoiExecutive extends TimedFSM {
         cmd.plan = null;
         cmd.src = remoteSrc;
         cmd.dst = 0xFFFF;
-        cmd.info = "Deadline Reached!";
+        cmd.info = "Deadline Reached: " + numSamples + " samples.";
         queueMessage(cmd, true);
 
         plan = null;
