@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
@@ -48,6 +49,16 @@ import java.util.Properties;
 
 public class SoiExecutive extends TimedFSM {
 
+    static class MessageAck {
+        Message msg;
+        boolean req_ack;
+
+        public MessageAck(Message m, boolean ack) {
+            msg = m;
+            req_ack = ack;
+        }
+    }
+
     private static final double TWO_PI_RADS = Math.PI * 2.0;
 
     // Maximum Iridium Packet size - TODO: Check if not 340 or 250
@@ -56,8 +67,7 @@ public class SoiExecutive extends TimedFSM {
     private static final int ANGLE_DIFF_DEGS = 5;
     protected static File CONFIG_FILE = null;
     final private ArrayList<String> txtMessages = new ArrayList<>();
-    final private ArrayList<Message> imcMessages = new ArrayList<>();
-    final private ArrayList<Message> profiles = new ArrayList<>();
+    final private ArrayList<MessageAck> imcMessages = new ArrayList<>();
     // Transmissions that MUST be sent!
     final private HashSet<Integer> pendingTransmissions = new HashSet<>();
     private DataProfiler<Temperature> tempProfiler;
@@ -232,8 +242,7 @@ public class SoiExecutive extends TimedFSM {
             reply.dst = 0xFFFF;
             reply.plan = null;
             reply.info = "Paused execution. Waiting for instructions.";
-            imcMessages.add(reply);
-            sendViaIridium(reply, (int) Duration.ofMinutes(5).toMinutes());
+            queueMessage(reply, false);
         }
     }
 
@@ -385,14 +394,14 @@ public class SoiExecutive extends TimedFSM {
                     if (cmds == null) {
                         return;
                     }
-                    imcMessages.addAll(cmds);
+                    queueMessages(cmds, false);
                 }
                 else {
-                    imcMessages.add(reply);
+                    queueMessage(reply, true);
                 }
                 break;
             default:
-                imcMessages.add(reply);
+                queueMessage(reply, false);
                 break;
         }
 
@@ -779,7 +788,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = plan.asImc();
         reply.info = "Restart cycled plan.";
-        imcMessages.add(reply);
+        queueMessage(reply, false);
 
         return this::start_waiting;
     }
@@ -862,7 +871,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = null;
         reply.info = "Finished plan execution. Waiting instructions.";
-        imcMessages.add(reply);
+        queueMessage(reply, true);
     }
 
     /**
@@ -1022,27 +1031,28 @@ public class SoiExecutive extends TimedFSM {
 
             EnumSet<ReportControl.COMM_INTERFACE> itfs = EnumSet.of(ReportControl.COMM_INTERFACE.CI_GSM);
             sendReport(itfs);
-            sendViaIridium(createStateReport(), max_wait - count_secs - 1);
+            queueMessage(createStateReport(), true);
             print("Will wait from " + min_wait + " to " + max_wait + " seconds to send " + txtMessages.size()
-                    + " texts, " + imcMessages.size() + " imc messages and " + profiles.size() + " profiles.");
+                    + " texts, " + imcMessages.size() + " imc messages.");
+        }
+
+        if (!atSurface()) {
+            setDepth(0);
         }
         else {
-            sendMessages(max_wait - count_secs - 1, false);
+            sendMessages(min_wait);
         }
 
         if (count_secs >= max_wait) {
             print("Advancing to next waypoint as maximum time was reached.");
             return this::exec;
         }
-        else if (count_secs > min_wait) {
-            IridiumTxStatus iridiumStatus = get(IridiumTxStatus.class);
 
-            if (iridiumStatus != null && iridiumStatus.timestamp > (System.currentTimeMillis() / 1000.0) - 3
-                    && iridiumStatus.status == IridiumTxStatus.STATUS.TXSTATUS_EMPTY) {
-                print("Synchronized with server in " + count_secs + " seconds. Advancing to next waypoint.");
-                return this::exec;
-            }
+        if (pendingTransmissions.isEmpty()) {
+            print("Completed all transmissions. Advancing to next waypoint");
+            return this::exec;
         }
+
         count_secs++;
         return this::communicate;
 
@@ -1152,7 +1162,17 @@ public class SoiExecutive extends TimedFSM {
         return this::reportErrors;
     }
 
-    protected void sendMessages(int ttl, boolean ack) {
+    protected void queueMessages(Collection<? extends Message> c, boolean ack) {
+        for (Message item : c) {
+            queueMessage(item, ack);
+        }
+    }
+
+    protected void queueMessage(Message m, boolean ack) {
+        imcMessages.add(new MessageAck(m, ack));
+    }
+
+    protected void sendMessages(int ttl) {
         for (String txt : txtMessages) {
             // TODO: Why was this 132?
             if (txt.length() > 132) {
@@ -1167,15 +1187,13 @@ public class SoiExecutive extends TimedFSM {
             tmsg.text = txt;
             trySend(tmsg);
 
-            if (ack) {
-                pendingTransmissions.add(txtID);
-            }
+            pendingTransmissions.add(txtID);
         }
         txtMessages.clear();
 
-        for (Message msg : imcMessages) {
-            List<Integer> reqIds = sendViaIridium(msg, ttl);
-            if (ack) {
+        for (MessageAck msgAck : imcMessages) {
+            List<Integer> reqIds = sendViaIridium(msgAck.msg, ttl);
+            if (msgAck.req_ack) {
                 pendingTransmissions.addAll(reqIds);
             }
         }
@@ -1198,10 +1216,10 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs == 0) {
-            imcMessages.add(createStateReport());
-            sendMessages(60, true);
+            queueMessage(createStateReport(), true);
         }
 
+        sendMessages(60);
         count_secs++;
 
         boolean transmitted = pendingTransmissions.isEmpty();
@@ -1292,7 +1310,7 @@ public class SoiExecutive extends TimedFSM {
     }
 
     /**
-     * Reset watchdog based on timeout parameter
+     * Reset watchdog based on a timeout parameter
      */
     private void resetDeadline() {
         distanceTraveled = 0;
@@ -1305,7 +1323,7 @@ public class SoiExecutive extends TimedFSM {
     }
 
     /**
-     * Generate state report to be sent over Iridium
+     * Generate a state report to be sent over Iridium
      *
      * @return A {@link StateReport} to be sent over Iridium
      */
