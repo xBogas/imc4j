@@ -13,7 +13,6 @@ import pt.lsts.imc4j.msg.EstimatedState;
 import pt.lsts.imc4j.msg.FollowRefState;
 import pt.lsts.imc4j.msg.FuelLevel;
 import pt.lsts.imc4j.msg.GpsFix;
-import pt.lsts.imc4j.msg.IridiumTxStatus;
 import pt.lsts.imc4j.msg.Message;
 import pt.lsts.imc4j.msg.PlanControl;
 import pt.lsts.imc4j.msg.PlanControlState;
@@ -232,7 +231,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (pControl.op == PlanControl.OP.PC_STOP && pControl.type == PlanControl.TYPE.PC_SUCCESS) {
-            state = this::start_waiting;
+            state = this::idleAtSurface;
         }
     }
 
@@ -272,7 +271,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = cmd.src;
         reply.dst_ent = cmd.src_ent;
 
-        boolean doChangeState = true;
+        FSMState nextState = null;
 
         switch (cmd.command) {
 
@@ -331,6 +330,9 @@ public class SoiExecutive extends TimedFSM {
                 print("" + plan);
                 print("Plan serialization size is " + reply.serialize().length);
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
+
+                count_secs = 0;
+                nextState = this::communicate;
                 break;
 
             case SOICMD_GET_PARAMS:
@@ -370,7 +372,6 @@ public class SoiExecutive extends TimedFSM {
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
                 if (paused) {
                     setPaused(false);
-                    doChangeState = false;
                     reply.info = "was paused; ";
                     if (plan != null && !plan.waypoints().isEmpty()) {
                         reply.info += "going to " + wpt_index + " of " + plan.waypoints().size() + "; ";
@@ -411,8 +412,8 @@ public class SoiExecutive extends TimedFSM {
                 break;
         }
 
-        if (doChangeState) {
-            state = this::start_waiting;
+        if (nextState != null) {
+            state = nextState;
         }
     }
 
