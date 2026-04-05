@@ -191,6 +191,9 @@ public class SoiExecutive extends TimedFSM {
             queueMessages(vps, 60, 5);
         }
 
+        salProfiler.clearSamples();
+        tempProfiler.clearSamples();
+
         SoiCommand cmd = new SoiCommand();
         cmd.command = SoiCommand.COMMAND.SOICMD_GET_PLAN;
         cmd.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
