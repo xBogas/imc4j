@@ -314,6 +314,7 @@ public class SoiExecutive extends TimedFSM {
                 }
 
                 plan = Plan.parse(cmd.plan);
+                print("Received plan with settings: " + cmd.settings);
                 parseSettings(cmd.settings, reply);
                 if (paused) {
                     setPaused(false);
