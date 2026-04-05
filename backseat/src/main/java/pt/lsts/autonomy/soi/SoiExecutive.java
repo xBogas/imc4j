@@ -789,7 +789,7 @@ public class SoiExecutive extends TimedFSM {
      *
      * @return The next {@link FSMState} to transition to, or {@code null} if no transition is required.
      */
-    private FSMState checkTransitions() {
+    private FSMState checkTransitions(FollowRefState ref) {
         secs_no_comms++;
         updateDistanceTraveled();
 
@@ -806,8 +806,12 @@ public class SoiExecutive extends TimedFSM {
         // No GPS for too long and not waiting for a new GPS signal
         if (!hasGps(minsUnder * 60) && !isInState(getGPSState)) {
             print("No GPS for too long (" + secs_no_comms + ")");
-            return this::getGPS;
             return getGPSState;
+        }
+
+        if (arrivedXY() && ref.state != FollowRefState.STATE.FR_HOVER) {
+            print("Should be hovering by now!! forcing update ...");
+            updateSpeed();
         }
 
         if (hasPassedWaypoint(wpt_index)) {
@@ -955,7 +959,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(maxDepth);
 
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -997,7 +1001,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(minDepth);
 
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -1025,7 +1029,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(0);
 
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -1045,7 +1049,7 @@ public class SoiExecutive extends TimedFSM {
         EstimatedState state = get(EstimatedState.class);
         double[] pos = WGS84Utilities.toLatLonDepth(state);
 
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -1085,7 +1089,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         double[] pos = getPosition();
 
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -1191,19 +1195,17 @@ public class SoiExecutive extends TimedFSM {
     /**
      * Send a {@link StateReport} via Iridium when the vehicle has been offline for too long.
      * <p>
-     * Entered from {@link #checkTransitions()} when {@code secs_no_comms / 60 > minsOff}. Sends the report on the first
+     * Entered from {@link #checkTransitions} when {@code secs_no_comms / 60 > minsOff}. Sends the report on the first
      * tick, then waits for DUNE to confirm the Iridium transmission was successful before resuming execution.
      */
     public FSMState sendPosition(FollowRefState ref) {
         printFSMState();
+        setDepth(0);
 
-        // This should checkTransitions
-        // As there are more critical errors!
-
-        // TODO sendPosition and getGPS are very similar!
-        // Goto surface and send message or getGps signal
-        // Maybe merge this into:
-        // add to transmission queue / event queue -> surface -> send (stay at surface)! -> send complete -> exec
+        FSMState next = checkTransitions(ref);
+        if (next != null) {
+            return next;
+        }
 
         if (!atSurface()) {
             count_secs = 0;
@@ -1320,7 +1322,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         setDepth(0);
-        FSMState next = checkTransitions();
+        FSMState next = checkTransitions(ref);
         if (next != null) {
             return next;
         }
@@ -1374,7 +1376,9 @@ public class SoiExecutive extends TimedFSM {
             return;
         }
 
-        setSpeed(curr.value + 0.00001, curr.speed_units);
+        double delta = (Math.random() - 0.5) * 0.001;
+        double new_val = Math.max(minSpeed, Math.min(maxSpeed, curr.value + delta));
+        setSpeed(new_val, curr.speed_units);
     }
 
     /**
