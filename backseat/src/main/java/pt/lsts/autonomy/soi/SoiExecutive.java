@@ -622,8 +622,21 @@ public class SoiExecutive extends TimedFSM {
         tempProfiler.setSample(get(EstimatedState.class), temp);
     }
 
+    public boolean invalidSalinity(Salinity sal) {
+        if (sal == null) {
+            return true;
+        }
+
+        return sal.value < 0 || sal.value > 100;
+    }
+
     @Consume
     public final void on(Salinity sal) {
+
+        if (invalidSalinity(sal)) {
+            return;
+        }
+
         salProfiler.setSample(get(EstimatedState.class), sal);
     }
 
