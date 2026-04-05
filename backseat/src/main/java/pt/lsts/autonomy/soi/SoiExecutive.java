@@ -132,13 +132,33 @@ public class SoiExecutive extends TimedFSM {
 
     private GpsFix valid = null;
 
+    // FSM state references for identity-based comparison
+    protected final FSMState endOfDeadlineState = this::endOfDeadline;
+    protected final FSMState idleAtSurfaceState = this::idleAtSurface;
+    protected final FSMState idleState = this::idle;
+    protected final FSMState execState = this::exec;
+    protected final FSMState descendState = this::descend;
+    protected final FSMState ascendState = this::ascend;
+    protected final FSMState keepSurfaceState = this::keepSurface;
+    protected final FSMState alignState = this::align;
+    protected final FSMState diveState = this::dive;
+    protected final FSMState communicateState = this::communicate;
+    protected final FSMState surfaceWaypointState = this::surfaceWaypoint;
+    protected final FSMState onWaypointState = this::onWaypoint;
+    protected final FSMState startWaitingState = this::start_waiting;
+    protected final FSMState waitState = this::wait;
+    protected final FSMState sendPositionState = this::sendPosition;
+    protected final FSMState criticalErrorState = this::criticalError;
+    protected final FSMState reportErrorsState = this::reportErrors;
+    protected final FSMState getGPSState = this::getGPS;
+
     /**
      * Class constructor
      */
     public SoiExecutive() {
         setPlanName(SOI_PLAN_ID);
         deadline = null;
-        state = this::idleAtSurface;
+        state = idleAtSurfaceState;
     }
 
     @Override
@@ -176,7 +196,7 @@ public class SoiExecutive extends TimedFSM {
 
         plan = null;
         wpt_index = 0;
-        state = this::endOfDeadline;
+        state = endOfDeadlineState;
         deadline = null;
         super.update(get(FollowRefState.class));
     }
@@ -230,12 +250,12 @@ public class SoiExecutive extends TimedFSM {
                 printError(err);
                 txtMessages.add("ERROR: " + pControl.info);
                 print("Ascending for report");
-                state = this::criticalError;
+                state = criticalErrorState;
             }
         }
 
         if (pControl.op == PlanControl.OP.PC_STOP && pControl.type == PlanControl.TYPE.PC_SUCCESS) {
-            state = this::idleAtSurface;
+            state = idleAtSurfaceState;
         }
     }
 
@@ -336,7 +356,7 @@ public class SoiExecutive extends TimedFSM {
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
 
                 count_secs = 0;
-                nextState = this::communicate;
+                nextState = communicateState;
                 break;
 
             case SOICMD_GET_PARAMS:
@@ -634,7 +654,7 @@ public class SoiExecutive extends TimedFSM {
 
         if (!atSurface()) {
             setDepth(0);
-            return this::endOfDeadline;
+            return endOfDeadlineState;
         }
 
         // Send all pending messages via Iridium and track their request IDs
@@ -643,10 +663,10 @@ public class SoiExecutive extends TimedFSM {
         // Transition only when every profile transmission has been confirmed
         if (pendingTransmissions.isEmpty()) {
             print("All profile transmissions confirmed. Transitioning to wait.");
-            return this::idleAtSurface;
+            return idleAtSurfaceState;
         }
 
-        return this::endOfDeadline;
+        return endOfDeadlineState;
     }
 
     /**
@@ -658,7 +678,7 @@ public class SoiExecutive extends TimedFSM {
         setLocation(pos[0], pos[1]);
         setDepth(0);
         setSpeed(speed, SpeedUnits.METERS_PS);
-        return this::idle;
+        return idleState;
     }
 
     /**
@@ -672,7 +692,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         FSMState newState = onIdle();
-        return newState != null ? newState : this::idle;
+        return newState != null ? newState : idleState;
     }
 
     protected FSMState onIdle() {
@@ -744,24 +764,26 @@ public class SoiExecutive extends TimedFSM {
         secs_no_comms++;
         updateDistanceTraveled();
 
-        //! TODO
         // Not communicated position for too long
-        if (secs_no_comms / 60 > minsOff) {
+        double now = System.currentTimeMillis() / 1000.0;
+        double delta_secs = (now - last_report_ts);
+        if ((delta_secs > minsOff * 60) && !isInState(sendPositionState)) {
             count_secs = 0;
             setDepth(0);
-            return this::sendPosition;
+            print("Not send a valid position in " + delta_secs + " seconds");
+            return sendPositionState;
         }
 
         // No GPS for too long and not waiting for a new GPS signal
-        FSMState getGPS = this::getGPS;
-        if (!hasGps(minsUnder * 60) && (state != getGPS)) {
+        if (!hasGps(minsUnder * 60) && !isInState(getGPSState)) {
             print("No GPS for too long (" + secs_no_comms + ")");
             return this::getGPS;
+            return getGPSState;
         }
 
         if (hasPassedWaypoint(wpt_index)) {
             print("Passed waypoint " + wpt_index);
-            return this::onWaypoint;
+            return onWaypointState;
         }
 
         return null;
@@ -797,7 +819,7 @@ public class SoiExecutive extends TimedFSM {
             printError(err);
             plan = null;
             txtMessages.add(err);
-            return this::idleAtSurface;
+            return idleAtSurfaceState;
         }
 
         SoiCommand reply = new SoiCommand();
@@ -809,7 +831,7 @@ public class SoiExecutive extends TimedFSM {
         reply.info = "Restart cycled plan.";
         queueMessage(reply, false);
 
-        return this::start_waiting;
+        return startWaitingState;
     }
 
     /**
@@ -818,7 +840,7 @@ public class SoiExecutive extends TimedFSM {
     public FSMState exec(FollowRefState state) {
         printFSMState();
         if (plan == null || plan.waypoints().isEmpty()) {
-            return this::idleAtSurface;
+            return idleAtSurfaceState;
         }
 
         Waypoint wpt = plan.waypoint(wpt_index);
@@ -837,7 +859,7 @@ public class SoiExecutive extends TimedFSM {
         setLocation(wpt.getLatitude(), wpt.getLongitude());
         setSpeed();
 
-        return this::align;
+        return alignState;
     }
 
     private boolean planEnded() {
@@ -881,6 +903,10 @@ public class SoiExecutive extends TimedFSM {
     }
 
     private void setAndInformEndOfPlan() {
+
+        wpt_index = 0;
+        plan = null;
+
         String txtDeadline = "INFO: Finished plan execution. Waiting instructions.";
         txtMessages.add(txtDeadline);
         SoiCommand reply = new SoiCommand();
@@ -916,7 +942,7 @@ public class SoiExecutive extends TimedFSM {
             if (dist < min_dist) {
                 print("!!!!!!!!!! Starting to ascend, getting close to destination.  " + Math.round(dist) + " < "
                         + Math.round(min_dist) + " (cur depth " + Math.round(cur_pos[2]) + ")");
-                return this::ascend;
+                return ascendState;
             }
         }
         catch (Exception e) {
@@ -928,10 +954,10 @@ public class SoiExecutive extends TimedFSM {
             if (minDepth < maxDepth) {
                 print("Now ascending.");
             }
-            return this::ascend;
+            return ascendState;
         }
         else {
-            return this::descend;
+            return descendState;
         }
     }
 
@@ -948,22 +974,22 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (!arrivedDepth(minDepth, depthTolerance)) {
-            return this::ascend;
+            return ascendState;
         }
 
         if (incompleteYoYo()) {
             setDepth(0);
-            return this::keepSurface;
+            return keepSurfaceState;
         }
 
         if (isUnderwater()) {
-            return this::descend;
+            return descendState;
         }
         else if (align) {
-            return this::align;
+            return alignState;
         }
 
-        return this::dive;
+        return diveState;
     }
 
     public FSMState keepSurface(FollowRefState ref) {
@@ -979,11 +1005,11 @@ public class SoiExecutive extends TimedFSM {
             sendMessages(30);
         }
 
-        return this::keepSurface;
+        return keepSurfaceState;
     }
 
     /**
-     * Right before diving, align yaw with target waypoint
+     * Right before diving, align yaw with the target waypoint
      */
     public FSMState align(FollowRefState ref) {
         printFSMState();
@@ -1011,19 +1037,20 @@ public class SoiExecutive extends TimedFSM {
         if (ang_diff < ANGLE_DIFF_DEGS) {
             if (incompleteYoYo()) {
                 setDepth(0);
-                return this::ascend;
+                setSpeed(speed, SpeedUnits.METERS_PS);
+                return keepSurfaceState;
             }
             setDepth(maxDepth);
-            return this::dive;
+            return diveState;
         }
         else {
             setDepth(0);
-            return this::align;
+            return alignState;
         }
     }
 
     /**
-     * Go underwater at fixed RPM speed
+     * Go underwater at a fixed RPM speed
      */
     public FSMState dive(FollowRefState ref) {
         printFSMState();
@@ -1040,11 +1067,11 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (pos[2] < 2 && pos[2] < maxDepth) {
-            return this::dive;
+            return diveState;
         }
         else {
             setSpeed();
-            return this::descend;
+            return descendState;
         }
     }
 
@@ -1080,16 +1107,16 @@ public class SoiExecutive extends TimedFSM {
 
         if (count_secs >= max_wait) {
             print("Advancing to next waypoint as maximum time was reached.");
-            return this::exec;
+            return execState;
         }
 
         if (pendingTransmissions.isEmpty()) {
             print("Completed all transmissions. Advancing to next waypoint");
-            return this::exec;
+            return execState;
         }
 
         count_secs++;
-        return this::communicate;
+        return communicateState;
 
     }
 
@@ -1098,12 +1125,12 @@ public class SoiExecutive extends TimedFSM {
 
         setDepth(0);
         if (!atSurface()) {
-            return this::surfaceWaypoint;
+            return surfaceWaypointState;
         }
 
         wpt_index++;
         count_secs = 0;
-        return this::communicate;
+        return communicateState;
     }
 
     /// Waypoint was reached!
@@ -1115,7 +1142,7 @@ public class SoiExecutive extends TimedFSM {
         setDepth(0);
 
         print("Surfacing at waypoint ...");
-        return this::surfaceWaypoint;
+        return surfaceWaypointState;
     }
 
     /**
@@ -1129,7 +1156,7 @@ public class SoiExecutive extends TimedFSM {
         setSpeed(speed, SpeedUnits.METERS_PS);
 
         print("Surfacing...");
-        return this::wait;
+        return waitState;
     }
 
     /**
@@ -1151,7 +1178,7 @@ public class SoiExecutive extends TimedFSM {
 
         if (!atSurface()) {
             count_secs = 0;
-            return this::sendPosition;
+            return sendPositionState;
         }
 
         if (count_secs == 0) {
@@ -1166,10 +1193,10 @@ public class SoiExecutive extends TimedFSM {
             print("Position report transmitted successfully. Resuming execution...");
             secs_no_comms = 0;
             count_secs = 0;
-            return this::exec;
+            return execState;
         }
 
-        return this::sendPosition;
+        return sendPositionState;
     }
 
     public FSMState criticalError(FollowRefState ref) {
@@ -1180,7 +1207,7 @@ public class SoiExecutive extends TimedFSM {
         setLocation(pos[0], pos[1]);
         setDepth(0);
         count_secs = 0;
-        return this::reportErrors;
+        return reportErrorsState;
     }
 
     protected void queueMessages(Collection<? extends Message> c, boolean ack) {
@@ -1233,7 +1260,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         if (!atSurface()) {
-            return this::reportErrors;
+            return reportErrorsState;
         }
 
         if (count_secs == 0) {
@@ -1249,10 +1276,10 @@ public class SoiExecutive extends TimedFSM {
         if (transmitted && gpsAcquired) {
             print("Error reported and GPS fix acquired. Resuming execution...");
             count_secs = 0;
-            return this::exec;
+            return execState;
         }
 
-        return this::reportErrors;
+        return reportErrorsState;
     }
 
     // Keep going to waypoint but go to surface to report Position!
@@ -1269,15 +1296,15 @@ public class SoiExecutive extends TimedFSM {
             String errorMsg = "Error: 10 secs at Surface with no GPS!";
             print(errorMsg);
             txtMessages.add(errorMsg);
-            return this::criticalError;
+            return criticalErrorState;
         }
 
         if (hasGps(minsUnder * 60)) {
             print("Got new valid GPSFix! Resuming executing...");
-            return this::exec;
+            return execState;
         }
 
-        return this::getGPS;
+        return getGPSState;
     }
 
     /**
@@ -1294,11 +1321,23 @@ public class SoiExecutive extends TimedFSM {
             setLocation(pos[0], pos[1]);
             secs_no_comms = 0;
             count_secs = 0;
-            return this::communicate;
+            return communicateState;
         }
         else {
-            return this::wait;
+            return waitState;
         }
+    }
+
+    public void updateSpeed() {
+        // Hack if DUNE did not enter hover mode.
+        // An update to the reference will force it to enter.
+        DesiredSpeed curr = getSpeed();
+        if (curr == null) {
+            setSpeed(minSpeed, SpeedUnits.METERS_PS);
+            return;
+        }
+
+        setSpeed(curr.value + 0.00001, curr.speed_units);
     }
 
     /**
