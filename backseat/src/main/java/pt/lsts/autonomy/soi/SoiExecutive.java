@@ -168,7 +168,7 @@ public class SoiExecutive extends TimedFSM {
     }
 
     @Override
-    protected void onDeadline() {
+    protected void onDeadline(FollowRefState ref) {
         // Go to surface
         double[] deadlinePosition = getPosition();
         setLocation(deadlinePosition[0], deadlinePosition[1]);
@@ -204,7 +204,7 @@ public class SoiExecutive extends TimedFSM {
         wpt_index = 0;
         state = endOfDeadlineState;
         deadline = null;
-        super.update(get(FollowRefState.class));
+        super.update(ref);
     }
 
     @FieldChange(field = "useVP")
