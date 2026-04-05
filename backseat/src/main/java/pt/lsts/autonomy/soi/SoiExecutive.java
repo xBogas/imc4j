@@ -318,7 +318,11 @@ public class SoiExecutive extends TimedFSM {
                 if (paused) {
                     setPaused(false);
                 }
-                resetDeadline(); // Reset deadline so plan can run for the desired timeout!
+
+                // Reset only if no current deadline available
+                if (deadline == null) {
+                    resetDeadline();
+                }
 
                 if (!plan.scheduledInTheFuture()) {
                     double[] pos = getPosition();
