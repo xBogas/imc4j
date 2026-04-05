@@ -163,6 +163,10 @@ public abstract class BackSeatDriver extends TcpClient {
         reference.flags.add(FLAGS.FLAG_SPEED);
     }
 
+    public DesiredSpeed getSpeed() {
+        return reference.speed;
+    }
+
     public boolean arrivedXY() {
         FollowRefState refState = get(FollowRefState.class);
         double[] lld = getPosition();
