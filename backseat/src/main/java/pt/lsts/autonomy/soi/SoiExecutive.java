@@ -42,19 +42,23 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Properties;
 
 public class SoiExecutive extends TimedFSM {
 
-    static class MessageAck {
+    static class MessageRequest {
         Message msg;
-        boolean req_ack;
+        int ttl;
+        int tries;
+        int max_tries;
 
-        public MessageAck(Message m, boolean ack) {
+        public MessageRequest(Message m, int ttl, int max_tries) {
             msg = m;
-            req_ack = ack;
+            this.ttl = ttl;
+            tries = 0;
+            this.max_tries = max_tries;
         }
     }
 
@@ -66,9 +70,9 @@ public class SoiExecutive extends TimedFSM {
     private static final int ANGLE_DIFF_DEGS = 5;
     protected static File CONFIG_FILE = null;
     final private ArrayList<String> txtMessages = new ArrayList<>();
-    final private ArrayList<MessageAck> imcMessages = new ArrayList<>();
+    final private ArrayList<MessageRequest> imcMessages = new ArrayList<>();
     // Transmissions that MUST be sent!
-    final private HashSet<Integer> pendingTransmissions = new HashSet<>();
+    final private LinkedHashMap<Integer, MessageRequest> pendingTransmissions = new LinkedHashMap<>();
     private DataProfiler<Temperature> tempProfiler;
     private DataProfiler<Salinity> salProfiler;
 
@@ -177,12 +181,12 @@ public class SoiExecutive extends TimedFSM {
         if (upSal) {
             ArrayList<Message> vps = salProfiler.getProfile(PARAMETER.PROF_SALINITY, numSamples);
             vps.forEach(vps_ -> vps_.src = remoteSrc);
-            queueMessages(vps, true);
+            queueMessages(vps, 60, 5);
         }
         if (upTemp) {
             ArrayList<Message> vps = tempProfiler.getProfile(PARAMETER.PROF_TEMPERATURE, numSamples);
             vps.forEach(vps_ -> vps_.src = remoteSrc);
-            queueMessages(vps, true);
+            queueMessages(vps, 60, 5);
         }
 
         SoiCommand cmd = new SoiCommand();
@@ -192,7 +196,7 @@ public class SoiExecutive extends TimedFSM {
         cmd.src = remoteSrc;
         cmd.dst = 0xFFFF;
         cmd.info = "Deadline Reached: " + numSamples + " samples.";
-        queueMessage(cmd, true);
+        queueMessage(cmd, 60, 5);
 
         plan = null;
         wpt_index = 0;
@@ -274,7 +278,7 @@ public class SoiExecutive extends TimedFSM {
             reply.dst = 0xFFFF;
             reply.plan = null;
             reply.info = "Paused execution. Waiting for instructions.";
-            queueMessage(reply, false);
+            queueMessage(reply, 30, 3);
         }
     }
 
@@ -425,14 +429,14 @@ public class SoiExecutive extends TimedFSM {
                     if (cmds == null) {
                         return;
                     }
-                    queueMessages(cmds, false);
+                    queueMessages(cmds, 60, 1);
                 }
                 else {
-                    queueMessage(reply, true);
+                    queueMessage(reply, 60, 2);
                 }
                 break;
             default:
-                queueMessage(reply, false);
+                queueMessage(reply, 120, 1);
                 break;
         }
 
@@ -629,14 +633,19 @@ public class SoiExecutive extends TimedFSM {
 
     @Override
     protected void onTransmissionFailed(TransmissionRequest treq) {
-        if (!pendingTransmissions.remove(treq.req_id)) {
+        MessageRequest m = pendingTransmissions.remove(treq.req_id);
+        if (m == null) {
             return;
         }
 
-        if (treq.msg_data != null) {
-            print("Retrying to send " + treq.msg_data.abbrev());
-            List<Integer> reqIds = sendViaIridium(treq.msg_data, 60);
-            pendingTransmissions.addAll(reqIds);
+        if (m.tries >= m.max_tries) {
+            return;
+        }
+
+        List<Integer> ids = sendViaIridium(m.msg, m.ttl);
+        m.tries++;
+        for (Integer id : ids) {
+            pendingTransmissions.put(id, m);
         }
     }
 
@@ -658,7 +667,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         // Send all pending messages via Iridium and track their request IDs
-        sendMessages(60);
+        sendMessages();
 
         // Transition only when every profile transmission has been confirmed
         if (pendingTransmissions.isEmpty()) {
@@ -688,7 +697,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         if (atSurface()) {
-            sendMessages(30);
+            sendMessages();
         }
 
         FSMState newState = onIdle();
@@ -829,7 +838,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = plan.asImc();
         reply.info = "Restart cycled plan.";
-        queueMessage(reply, false);
+        queueMessage(reply, 120, 1);
 
         return startWaitingState;
     }
@@ -852,7 +861,7 @@ public class SoiExecutive extends TimedFSM {
 
             plan = null;
             wpt_index = 0;
-            return this::idleAtSurface;
+            return idleAtSurfaceState;
         }
 
         print("Executing wpt " + wpt_index);
@@ -916,7 +925,7 @@ public class SoiExecutive extends TimedFSM {
         reply.dst = 0xFFFF;
         reply.plan = null;
         reply.info = "Finished plan execution. Waiting instructions.";
-        queueMessage(reply, true);
+        queueMessage(reply, 60, 3);
     }
 
     /**
@@ -1002,7 +1011,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (atSurface()) {
-            sendMessages(30);
+            sendMessages();
         }
 
         return keepSurfaceState;
@@ -1093,7 +1102,7 @@ public class SoiExecutive extends TimedFSM {
 
             EnumSet<ReportControl.COMM_INTERFACE> itfs = EnumSet.of(ReportControl.COMM_INTERFACE.CI_GSM);
             sendReport(itfs);
-            queueMessage(createStateReport(), true);
+            queueMessage(createStateReport(), max_wait, 1);
             print("Will wait from " + min_wait + " to " + max_wait + " seconds to send " + txtMessages.size()
                     + " texts, " + imcMessages.size() + " imc messages.");
         }
@@ -1102,7 +1111,7 @@ public class SoiExecutive extends TimedFSM {
             setDepth(0);
         }
         else {
-            sendMessages(min_wait);
+            sendMessages();
         }
 
         if (count_secs >= max_wait) {
@@ -1182,12 +1191,12 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs == 0) {
-            List<Integer> reqIds = sendViaIridium(createStateReport(), 10);
-            pendingTransmissions.addAll(reqIds);
+            queueMessage(createStateReport(), 60, 3);
             print("Position report queued. Waiting for transmission confirmation...");
         }
 
         count_secs++;
+        sendMessages();
 
         if (pendingTransmissions.isEmpty()) {
             print("Position report transmitted successfully. Resuming execution...");
@@ -1210,39 +1219,43 @@ public class SoiExecutive extends TimedFSM {
         return reportErrorsState;
     }
 
-    protected void queueMessages(Collection<? extends Message> c, boolean ack) {
+    protected void queueMessages(Collection<? extends Message> c, int ttl, int tries) {
         for (Message item : c) {
-            queueMessage(item, ack);
+            queueMessage(item, ttl, tries);
         }
     }
 
-    protected void queueMessage(Message m, boolean ack) {
-        imcMessages.add(new MessageAck(m, ack));
+    protected void queueMessage(Message m, int ttl, int tries) {
+
+        if (ttl < 0) {
+            ttl = Integer.MAX_VALUE;
+        }
+
+        imcMessages.add(new MessageRequest(m, ttl, tries));
     }
 
-    protected void sendMessages(int ttl) {
+    protected void sendMessages() {
         for (String txt : txtMessages) {
             // TODO: Why was this 132?
             if (txt.length() > 132) {
                 txt = txt.substring(0, 132);
             }
-            sendViaSms(txt, ttl);
-            Integer txtID = sendViaIridium(txt, ttl);
+            sendViaSms(txt, 60);
+            sendViaIridium(txt, 60);
 
             // Send message to DUNE LOG
             TextMessage tmsg = new TextMessage();
             tmsg.origin = "Soi-exec";
             tmsg.text = txt;
             trySend(tmsg);
-
-            pendingTransmissions.add(txtID);
         }
         txtMessages.clear();
 
-        for (MessageAck msgAck : imcMessages) {
-            List<Integer> reqIds = sendViaIridium(msgAck.msg, ttl);
-            if (msgAck.req_ack) {
-                pendingTransmissions.addAll(reqIds);
+        for (MessageRequest msg : imcMessages) {
+            List<Integer> reqIds = sendViaIridium(msg.msg, msg.ttl);
+            msg.tries++;
+            for (Integer id : reqIds) {
+                pendingTransmissions.put(id, msg);
             }
         }
         imcMessages.clear();
@@ -1264,10 +1277,10 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (count_secs == 0) {
-            queueMessage(createStateReport(), true);
+            queueMessage(createStateReport(), 60, 3);
         }
 
-        sendMessages(60);
+        sendMessages();
         count_secs++;
 
         boolean transmitted = pendingTransmissions.isEmpty();
@@ -1290,6 +1303,10 @@ public class SoiExecutive extends TimedFSM {
         FSMState next = checkTransitions();
         if (next != null) {
             return next;
+        }
+
+        if (atSurface()) {
+            sendMessages();
         }
 
         if (secs_surface > 10) {
