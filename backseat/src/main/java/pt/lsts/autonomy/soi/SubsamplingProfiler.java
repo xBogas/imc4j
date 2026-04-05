@@ -9,12 +9,11 @@ import pt.lsts.imc4j.util.WGS84Utilities;
 import java.util.ArrayList;
 
 /**
- * A profile generator that subsamples chronological data by selecting equally spaced elements.
- * This implementation wraps every incoming sample into its own individual
- * {@link VerticalProfile} message containing a single data point.
- * When a profile is requested, it does not modify or average the data; instead, it
- * calculates a stride to iterate through the list. It returns the requested
- * number of samples by picking evenly spaced points from the chronological history.
+ * A profile generator that subsamples chronological data by selecting equally spaced elements. This implementation
+ * wraps every incoming sample into its own individual {@link VerticalProfile} message containing a single data point.
+ * When a profile is requested, it does not modify or average the data; instead, it calculates a stride to iterate
+ * through the list. It returns the requested number of samples by picking evenly spaced points from the chronological
+ * history.
  */
 public class SubsamplingProfiler<T extends Message> implements DataProfiler<T> {
 
@@ -74,6 +73,11 @@ public class SubsamplingProfiler<T extends Message> implements DataProfiler<T> {
         }
 
         return result;
+    }
+
+    @Override
+    public void clearSamples() {
+        samples.clear();
     }
 
     private void addSample(VerticalProfile profile) {

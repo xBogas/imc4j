@@ -13,12 +13,11 @@ import pt.lsts.imc4j.msg.VerticalProfile.PARAMETER;
 import pt.lsts.imc4j.util.WGS84Utilities;
 
 /**
- * A profile generator that aggregates samples into discrete depth-based bins.
- * This implementation stores raw {@link ProfileSample} objects in memory as they arrive.
- * When requested to generate a profile, it divides the water column (from the surface
- * down to the maximum recorded depth) into a specified number of equally sized depth bins.
- * It calculates the mathematical average of all samples that fall into each specific bin and
- * returns a single {@link VerticalProfile} message containing these averaged samples.
+ * A profile generator that aggregates samples into discrete depth-based bins. This implementation stores raw
+ * {@link ProfileSample} objects in memory as they arrive. When requested to generate a profile, it divides the water
+ * column (from the surface down to the maximum recorded depth) into a specified number of equally sized depth bins. It
+ * calculates the mathematical average of all samples that fall into each specific bin and returns a single
+ * {@link VerticalProfile} message containing these averaged samples.
  */
 public class DepthBinnedProfiler<T extends Message> implements DataProfiler<T> {
 
@@ -127,6 +126,11 @@ public class DepthBinnedProfiler<T extends Message> implements DataProfiler<T> {
 
         result.add(vp);
         return result;
+    }
+
+    @Override
+    public void clearSamples() {
+        samples.clear();
     }
 
     public static void main(String[] args) {

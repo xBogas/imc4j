@@ -30,4 +30,8 @@ public interface DataProfiler<T extends Message> {
      */
     ArrayList<Message> getProfile(VerticalProfile.PARAMETER param, int number);
 
+    /**
+     * Clear all stored samples
+     */
+    void clearSamples();
 }
