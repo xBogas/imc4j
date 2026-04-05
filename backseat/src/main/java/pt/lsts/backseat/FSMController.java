@@ -27,6 +27,10 @@ public class FSMController extends BackSeatDriver {
         print("FSM State: " + method);        
     }
 
+    protected boolean isInState(FSMState target) {
+        return state == target;
+    }
+
 	@FunctionalInterface
 	public static interface FSMState {
 		public FSMState step(FollowRefState refState);
