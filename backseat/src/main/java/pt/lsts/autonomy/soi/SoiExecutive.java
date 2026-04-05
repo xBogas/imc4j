@@ -7,6 +7,7 @@ import pt.lsts.imc4j.annotations.Consume;
 import pt.lsts.imc4j.annotations.Parameter;
 import pt.lsts.imc4j.annotations.FieldChange;
 import pt.lsts.imc4j.def.SpeedUnits;
+import pt.lsts.imc4j.msg.DesiredSpeed;
 import pt.lsts.imc4j.msg.EntityParameter;
 import pt.lsts.imc4j.msg.EntityParameters;
 import pt.lsts.imc4j.msg.EstimatedState;
@@ -123,6 +124,7 @@ public class SoiExecutive extends TimedFSM {
 
     private Plan plan = new Plan("idle");
     private int secs_no_comms = 0;
+    private double last_report_ts;
     private int count_secs = 0;
     private int secs_underwater = 0;
     private int wpt_index = 0;
@@ -1449,8 +1451,8 @@ public class SoiExecutive extends TimedFSM {
         }
 
         report.stime = (int) (System.currentTimeMillis() / 1000);
+        last_report_ts = report.stime;
         return report;
-
     }
 
     public void saveConfig(File destination) throws Exception {
