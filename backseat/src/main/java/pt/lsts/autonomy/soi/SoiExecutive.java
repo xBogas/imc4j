@@ -414,6 +414,7 @@ public class SoiExecutive extends TimedFSM {
 
             case SOICMD_RESUME:
                 print("CMD: Resume execution!");
+                queueMessage(createStateReport(), 30, 3);
 //                resetDeadline();
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
                 if (paused) {
