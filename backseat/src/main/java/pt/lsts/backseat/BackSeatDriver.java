@@ -578,6 +578,7 @@ public abstract class BackSeatDriver extends TcpClient {
 
         print("Iridium transmission status changed: " + status);
         switch (status.status) {
+            case TSTAT_SENT:
             case TSTAT_DELIVERED:
                 print("Request " + status.req_id + " has been transmitted: " + status.status + " / " + status.info);
                 TransmissionRequest ok = iridiumTransmissions.remove(status.req_id);
