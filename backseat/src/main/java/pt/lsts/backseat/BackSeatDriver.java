@@ -654,6 +654,7 @@ public abstract class BackSeatDriver extends TcpClient {
 
             StringBuilder rqstIdsString = new StringBuilder();
             for (TransmissionRequest request : requestList) {
+                request.timestamp = msg.timestamp;
                 send(request);
                 iridiumTransmissions.put(request.req_id, request);
                 rqstIdsString.append(request.req_id).append(", ");
