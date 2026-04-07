@@ -1491,6 +1491,7 @@ public class SoiExecutive extends TimedFSM {
             report.plan_checksum = plan.checksum();
         }
 
+        report.src = remoteSrc;
         report.stime = (int) (System.currentTimeMillis() / 1000);
         last_report_ts = report.stime;
         return report;
