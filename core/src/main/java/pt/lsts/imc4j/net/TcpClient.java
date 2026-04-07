@@ -130,9 +130,11 @@ public class TcpClient extends Thread {
 		
 		if (m.src == 0xFFFF)
 			m.src = localSrc;
-		
-		m.timestamp = System.currentTimeMillis()/1000.0;
-		
+
+        if (m.timestamp <= 0) {
+		    m.timestamp = System.currentTimeMillis()/1000.0;
+        }
+
 		synchronized (lock) {
 			try {
 				if (connected && socket != null && socket.isConnected()) {
