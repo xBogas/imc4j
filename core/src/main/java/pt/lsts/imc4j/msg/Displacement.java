@@ -10,53 +10,63 @@ import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 
 /**
- * Measurement of relative wind speed. (Meaning without correcting for vehicle effects).
+ * Component of incremetal position vector over a period of time.
  */
-public class WindSpeed extends Message {
-	public static final int ID_STATIC = 271;
+public class Displacement extends Message {
+	public static final int ID_STATIC = 915;
 
 	/**
-	 * Direction of the measured wind speed.
+	 * The device time.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "rad"
+			type = IMCField.TYPE_FP64,
+			units = "s"
 	)
-	public float direction = 0f;
+	public double time = 0;
 
 	/**
-	 * The value of the wind speed as measured by the sensor.
+	 * X component.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
+			type = IMCField.TYPE_FP64,
+			units = "m"
 	)
-	public float speed = 0f;
+	public double x = 0;
 
 	/**
-	 * Wind turbulence intensity.
+	 * Y component.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
+			type = IMCField.TYPE_FP64,
+			units = "m"
 	)
-	public float turbulence = 0f;
+	public double y = 0;
+
+	/**
+	 * Z component.
+	 */
+	@FieldType(
+			type = IMCField.TYPE_FP64,
+			units = "m"
+	)
+	public double z = 0;
 
 	public String abbrev() {
-		return "WindSpeed";
+		return "Displacement";
 	}
 
 	public int mgid() {
-		return 271;
+		return 915;
 	}
 
 	public byte[] serializeFields() {
 		try {
 			ByteArrayOutputStream _data = new ByteArrayOutputStream();
 			DataOutputStream _out = new DataOutputStream(_data);
-			_out.writeFloat(direction);
-			_out.writeFloat(speed);
-			_out.writeFloat(turbulence);
+			_out.writeDouble(time);
+			_out.writeDouble(x);
+			_out.writeDouble(y);
+			_out.writeDouble(z);
 			return _data.toByteArray();
 		}
 		catch (IOException e) {
@@ -67,9 +77,10 @@ public class WindSpeed extends Message {
 
 	public void deserializeFields(ByteBuffer buf) throws IOException {
 		try {
-			direction = buf.getFloat();
-			speed = buf.getFloat();
-			turbulence = buf.getFloat();
+			time = buf.getDouble();
+			x = buf.getDouble();
+			y = buf.getDouble();
+			z = buf.getDouble();
 		}
 		catch (Exception e) {
 			throw new IOException(e);

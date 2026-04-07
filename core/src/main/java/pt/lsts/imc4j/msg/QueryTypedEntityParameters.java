@@ -7,18 +7,19 @@ import java.lang.Exception;
 import java.lang.IllegalArgumentException;
 import java.lang.String;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 import pt.lsts.imc4j.util.SerializationUtils;
 
 /**
- * Acoustic operation.
+ * This message can be used to query/report the entities and respective parameters in the system
  */
-public class AcousticOperation extends Message {
-	public static final int ID_STATIC = 211;
+public class QueryTypedEntityParameters extends Message {
+	public static final int ID_STATIC = 2016;
 
 	/**
-	 * Operation type.
+	 * Operation to perform.
 	 */
 	@FieldType(
 			type = IMCField.TYPE_UINT8,
@@ -27,38 +28,37 @@ public class AcousticOperation extends Message {
 	public OP op = OP.values()[0];
 
 	/**
-	 * The meaning of this field depends on the operation and is
-	 * explained in the operation's description.
+	 * Echoes the request_id in the request
+	 */
+	@FieldType(
+			type = IMCField.TYPE_UINT32
+	)
+	public long request_id = 0;
+
+	/**
+	 * Entity Label of the task that's replying to the request
 	 */
 	@FieldType(
 			type = IMCField.TYPE_PLAINTEXT
 	)
-	public String system = "";
+	public String entity_name = "";
 
 	/**
-	 * The meaning of this field depends on the operation and is
-	 * explained in the operation's description.
+	 * Contains an optionally defined List of TypedEntityParameter as a response to a TypedEntityParamaters Request.
+	 * Additionally, if the entity has a custom editor, this message will contain the information to load it with a
+	 * single TypedEntityParameterOptions message in the list.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m"
+			type = IMCField.TYPE_MESSAGELIST
 	)
-	public float range = 0f;
-
-	/**
-	 * Argument for message send ('MSG') requests.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_MESSAGE
-	)
-	public Message msg = null;
+	public ArrayList<TypedEntityParametersOptions> parameters = new ArrayList<>();
 
 	public String abbrev() {
-		return "AcousticOperation";
+		return "QueryTypedEntityParameters";
 	}
 
 	public int mgid() {
-		return 211;
+		return 2016;
 	}
 
 	public byte[] serializeFields() {
@@ -66,9 +66,9 @@ public class AcousticOperation extends Message {
 			ByteArrayOutputStream _data = new ByteArrayOutputStream();
 			DataOutputStream _out = new DataOutputStream(_data);
 			_out.writeByte((int)(op != null? op.value() : 0));
-			SerializationUtils.serializePlaintext(_out, system);
-			_out.writeFloat(range);
-			SerializationUtils.serializeInlineMsg(_out, msg);
+			_out.writeInt((int)request_id);
+			SerializationUtils.serializePlaintext(_out, entity_name);
+			SerializationUtils.serializeMsgList(_out, parameters);
 			return _data.toByteArray();
 		}
 		catch (IOException e) {
@@ -80,9 +80,9 @@ public class AcousticOperation extends Message {
 	public void deserializeFields(ByteBuffer buf) throws IOException {
 		try {
 			op = OP.valueOf(buf.get() & 0xFF);
-			system = SerializationUtils.deserializePlaintext(buf);
-			range = buf.getFloat();
-			msg = SerializationUtils.deserializeInlineMsg(buf);
+			request_id = buf.getInt() & 0xFFFFFFFF;
+			entity_name = SerializationUtils.deserializePlaintext(buf);
+			parameters = SerializationUtils.deserializeMsgList(buf);
 		}
 		catch (Exception e) {
 			throw new IOException(e);
@@ -90,45 +90,9 @@ public class AcousticOperation extends Message {
 	}
 
 	public enum OP {
-		AOP_ABORT(0l),
+		OP_REQUEST(0l),
 
-		AOP_ABORT_IP(1l),
-
-		AOP_ABORT_TIMEOUT(2l),
-
-		AOP_ABORT_ACKED(3l),
-
-		AOP_RANGE(4l),
-
-		AOP_RANGE_IP(5l),
-
-		AOP_RANGE_TIMEOUT(6l),
-
-		AOP_RANGE_RECVED(7l),
-
-		AOP_BUSY(8l),
-
-		AOP_UNSUPPORTED(9l),
-
-		AOP_NO_TXD(10l),
-
-		AOP_MSG(11l),
-
-		AOP_MSG_QUEUED(12l),
-
-		AOP_MSG_IP(13l),
-
-		AOP_MSG_DONE(14l),
-
-		AOP_MSG_FAILURE(15l),
-
-		AOP_MSG_SHORT(16l),
-
-		AOP_REVERSE_RANGE(17l),
-
-		AOP_FORCED_ABORT(18l),
-
-		AOP_MSG_FRAGMENT(19l);
+		OP_REPLY(1l);
 
 		protected long value;
 

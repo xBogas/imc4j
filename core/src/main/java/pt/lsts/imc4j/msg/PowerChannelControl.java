@@ -30,7 +30,7 @@ public class PowerChannelControl extends Message {
 	 */
 	@FieldType(
 			type = IMCField.TYPE_UINT8,
-			max = 6,
+			max = 7,
 			units = "Enumerated"
 	)
 	public OP op = OP.values()[0];

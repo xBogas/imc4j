@@ -94,7 +94,9 @@ public class TransmissionStatus extends Message {
 
 		TSTAT_TEMPORARY_FAILURE(102l),
 
-		TSTAT_PERMANENT_FAILURE(103l);
+		TSTAT_PERMANENT_FAILURE(103l),
+
+		TSTAT_INV_ADDR(104l);
 
 		protected long value;
 

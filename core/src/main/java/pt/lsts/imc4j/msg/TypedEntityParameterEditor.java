@@ -8,55 +8,37 @@ import java.lang.String;
 import java.nio.ByteBuffer;
 import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
+import pt.lsts.imc4j.util.SerializationUtils;
 
 /**
- * Measurement of relative wind speed. (Meaning without correcting for vehicle effects).
+ * This message is used to describe the ValuesIf content of a TypedEntityParameter.
  */
-public class WindSpeed extends Message {
-	public static final int ID_STATIC = 271;
+public class TypedEntityParameterEditor extends TypedEntityParametersOptions {
+	public static final int ID_STATIC = 2036;
 
 	/**
-	 * Direction of the measured wind speed.
+	 * String name of the editor to be used for this entity parameters.
+	 * This value is advisory only. The receiving end should try to honor it,
+	 * for the edition respect more complicated logic that Values-If can provide.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "rad"
+			type = IMCField.TYPE_PLAINTEXT
 	)
-	public float direction = 0f;
-
-	/**
-	 * The value of the wind speed as measured by the sensor.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
-	)
-	public float speed = 0f;
-
-	/**
-	 * Wind turbulence intensity.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
-	)
-	public float turbulence = 0f;
+	public String value = "";
 
 	public String abbrev() {
-		return "WindSpeed";
+		return "TypedEntityParameterEditor";
 	}
 
 	public int mgid() {
-		return 271;
+		return 2036;
 	}
 
 	public byte[] serializeFields() {
 		try {
 			ByteArrayOutputStream _data = new ByteArrayOutputStream();
 			DataOutputStream _out = new DataOutputStream(_data);
-			_out.writeFloat(direction);
-			_out.writeFloat(speed);
-			_out.writeFloat(turbulence);
+			SerializationUtils.serializePlaintext(_out, value);
 			return _data.toByteArray();
 		}
 		catch (IOException e) {
@@ -67,9 +49,7 @@ public class WindSpeed extends Message {
 
 	public void deserializeFields(ByteBuffer buf) throws IOException {
 		try {
-			direction = buf.getFloat();
-			speed = buf.getFloat();
-			turbulence = buf.getFloat();
+			value = SerializationUtils.deserializePlaintext(buf);
 		}
 		catch (Exception e) {
 			throw new IOException(e);

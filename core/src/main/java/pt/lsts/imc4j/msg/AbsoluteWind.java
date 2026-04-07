@@ -10,10 +10,10 @@ import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 
 /**
- * Measurement of relative wind speed. (Meaning without correcting for vehicle effects).
+ * Measurement of absolute wind speed (Meaning without vehicle effects).
  */
-public class WindSpeed extends Message {
-	public static final int ID_STATIC = 271;
+public class AbsoluteWind extends Message {
+	public static final int ID_STATIC = 911;
 
 	/**
 	 * Direction of the measured wind speed.
@@ -43,11 +43,11 @@ public class WindSpeed extends Message {
 	public float turbulence = 0f;
 
 	public String abbrev() {
-		return "WindSpeed";
+		return "AbsoluteWind";
 	}
 
 	public int mgid() {
-		return 271;
+		return 911;
 	}
 
 	public byte[] serializeFields() {

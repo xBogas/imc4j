@@ -10,53 +10,33 @@ import pt.lsts.imc4j.annotations.FieldType;
 import pt.lsts.imc4j.annotations.IMCField;
 
 /**
- * Measurement of relative wind speed. (Meaning without correcting for vehicle effects).
+ * Report of software RAM usage.
  */
-public class WindSpeed extends Message {
-	public static final int ID_STATIC = 271;
+public class RamUsage extends Message {
+	public static final int ID_STATIC = 21;
 
 	/**
-	 * Direction of the measured wind speed.
+	 * The RAM usage, in KiB, of the sending software.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "rad"
+			type = IMCField.TYPE_FP64,
+			units = "KiB"
 	)
-	public float direction = 0f;
-
-	/**
-	 * The value of the wind speed as measured by the sensor.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
-	)
-	public float speed = 0f;
-
-	/**
-	 * Wind turbulence intensity.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m/s"
-	)
-	public float turbulence = 0f;
+	public double value = 0;
 
 	public String abbrev() {
-		return "WindSpeed";
+		return "RamUsage";
 	}
 
 	public int mgid() {
-		return 271;
+		return 21;
 	}
 
 	public byte[] serializeFields() {
 		try {
 			ByteArrayOutputStream _data = new ByteArrayOutputStream();
 			DataOutputStream _out = new DataOutputStream(_data);
-			_out.writeFloat(direction);
-			_out.writeFloat(speed);
-			_out.writeFloat(turbulence);
+			_out.writeDouble(value);
 			return _data.toByteArray();
 		}
 		catch (IOException e) {
@@ -67,9 +47,7 @@ public class WindSpeed extends Message {
 
 	public void deserializeFields(ByteBuffer buf) throws IOException {
 		try {
-			direction = buf.getFloat();
-			speed = buf.getFloat();
-			turbulence = buf.getFloat();
+			value = buf.getDouble();
 		}
 		catch (Exception e) {
 			throw new IOException(e);

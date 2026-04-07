@@ -55,7 +55,9 @@ public class RestartSystem extends Message {
 	public enum TYPE {
 		RSTYPE_DUNE(1l),
 
-		RSTYPE_SYSTEM(2l);
+		RSTYPE_SYSTEM(2l),
+
+		RSTYPE_TASK(3l);
 
 		protected long value;
 

@@ -31,6 +31,8 @@ public class MessageFactory {
 
 	public static final int ID_MsgList = 20;
 
+	public static final int ID_RamUsage = 21;
+
 	public static final int ID_SimulatedState = 50;
 
 	public static final int ID_LeakSimulation = 51;
@@ -597,6 +599,8 @@ public class MessageFactory {
 
 	public static final int ID_MessagePart = 877;
 
+	public static final int ID_MessagePartControl = 878;
+
 	public static final int ID_NeptusBlob = 888;
 
 	public static final int ID_Aborted = 889;
@@ -641,11 +645,23 @@ public class MessageFactory {
 
 	public static final int ID_HomePosition = 909;
 
+	public static final int ID_AbsoluteWind = 911;
+
+	public static final int ID_AisInfo = 912;
+
+	public static final int ID_ENCAwareness = 913;
+
+	public static final int ID_Displacement = 915;
+
 	public static final int ID_CurrentProfile = 1014;
 
 	public static final int ID_CurrentProfileCell = 1015;
 
 	public static final int ID_ADCPBeam = 1016;
+
+	public static final int ID_Frequency = 1017;
+
+	public static final int ID_WaveSpectrumParameters = 1018;
 
 	public static final int ID_GpioState = 2000;
 
@@ -660,6 +676,18 @@ public class MessageFactory {
 	public static final int ID_TotalMagIntensity = 2006;
 
 	public static final int ID_CommRestriction = 2010;
+
+	public static final int ID_QueryTypedEntityParameters = 2016;
+
+	public static final int ID_TypedEntityParameter = 2017;
+
+	public static final int ID_ValuesIf = 2018;
+
+	public static final int ID_VersionInfo = 2021;
+
+	public static final int ID_TotalHeading = 2022;
+
+	public static final int ID_TypedEntityParameterEditor = 2036;
 
 	public static Message create(int mgid) {
 		switch(mgid) {
@@ -704,6 +732,9 @@ public class MessageFactory {
 			}
 			case ID_MsgList: {
 				return new MsgList();
+			}
+			case ID_RamUsage: {
+				return new RamUsage();
 			}
 			case ID_SimulatedState: {
 				return new SimulatedState();
@@ -1554,6 +1585,9 @@ public class MessageFactory {
 			case ID_MessagePart: {
 				return new MessagePart();
 			}
+			case ID_MessagePartControl: {
+				return new MessagePartControl();
+			}
 			case ID_NeptusBlob: {
 				return new NeptusBlob();
 			}
@@ -1620,6 +1654,18 @@ public class MessageFactory {
 			case ID_HomePosition: {
 				return new HomePosition();
 			}
+			case ID_AbsoluteWind: {
+				return new AbsoluteWind();
+			}
+			case ID_AisInfo: {
+				return new AisInfo();
+			}
+			case ID_ENCAwareness: {
+				return new ENCAwareness();
+			}
+			case ID_Displacement: {
+				return new Displacement();
+			}
 			case ID_CurrentProfile: {
 				return new CurrentProfile();
 			}
@@ -1628,6 +1674,12 @@ public class MessageFactory {
 			}
 			case ID_ADCPBeam: {
 				return new ADCPBeam();
+			}
+			case ID_Frequency: {
+				return new Frequency();
+			}
+			case ID_WaveSpectrumParameters: {
+				return new WaveSpectrumParameters();
 			}
 			case ID_GpioState: {
 				return new GpioState();
@@ -1649,6 +1701,24 @@ public class MessageFactory {
 			}
 			case ID_CommRestriction: {
 				return new CommRestriction();
+			}
+			case ID_QueryTypedEntityParameters: {
+				return new QueryTypedEntityParameters();
+			}
+			case ID_TypedEntityParameter: {
+				return new TypedEntityParameter();
+			}
+			case ID_ValuesIf: {
+				return new ValuesIf();
+			}
+			case ID_VersionInfo: {
+				return new VersionInfo();
+			}
+			case ID_TotalHeading: {
+				return new TotalHeading();
+			}
+			case ID_TypedEntityParameterEditor: {
+				return new TypedEntityParameterEditor();
 			}
 			default: {
 				return null;
@@ -1703,6 +1773,9 @@ public class MessageFactory {
 			}
 			case "MsgList": {
 				return ID_MsgList;
+			}
+			case "RamUsage": {
+				return ID_RamUsage;
 			}
 			case "SimulatedState": {
 				return ID_SimulatedState;
@@ -2553,6 +2626,9 @@ public class MessageFactory {
 			case "MessagePart": {
 				return ID_MessagePart;
 			}
+			case "MessagePartControl": {
+				return ID_MessagePartControl;
+			}
 			case "NeptusBlob": {
 				return ID_NeptusBlob;
 			}
@@ -2619,6 +2695,18 @@ public class MessageFactory {
 			case "HomePosition": {
 				return ID_HomePosition;
 			}
+			case "AbsoluteWind": {
+				return ID_AbsoluteWind;
+			}
+			case "AisInfo": {
+				return ID_AisInfo;
+			}
+			case "ENCAwareness": {
+				return ID_ENCAwareness;
+			}
+			case "Displacement": {
+				return ID_Displacement;
+			}
 			case "CurrentProfile": {
 				return ID_CurrentProfile;
 			}
@@ -2627,6 +2715,12 @@ public class MessageFactory {
 			}
 			case "ADCPBeam": {
 				return ID_ADCPBeam;
+			}
+			case "Frequency": {
+				return ID_Frequency;
+			}
+			case "WaveSpectrumParameters": {
+				return ID_WaveSpectrumParameters;
 			}
 			case "GpioState": {
 				return ID_GpioState;
@@ -2648,6 +2742,24 @@ public class MessageFactory {
 			}
 			case "CommRestriction": {
 				return ID_CommRestriction;
+			}
+			case "QueryTypedEntityParameters": {
+				return ID_QueryTypedEntityParameters;
+			}
+			case "TypedEntityParameter": {
+				return ID_TypedEntityParameter;
+			}
+			case "ValuesIf": {
+				return ID_ValuesIf;
+			}
+			case "VersionInfo": {
+				return ID_VersionInfo;
+			}
+			case "TotalHeading": {
+				return ID_TotalHeading;
+			}
+			case "TypedEntityParameterEditor": {
+				return ID_TypedEntityParameterEditor;
 			}
 			default: {
 				return -1;

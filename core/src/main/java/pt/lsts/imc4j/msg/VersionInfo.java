@@ -12,13 +12,13 @@ import pt.lsts.imc4j.annotations.IMCField;
 import pt.lsts.imc4j.util.SerializationUtils;
 
 /**
- * Acoustic operation.
+ * This message is used to query / report version information related to an entity.
  */
-public class AcousticOperation extends Message {
-	public static final int ID_STATIC = 211;
+public class VersionInfo extends Message {
+	public static final int ID_STATIC = 2021;
 
 	/**
-	 * Operation type.
+	 * Operation to perform.
 	 */
 	@FieldType(
 			type = IMCField.TYPE_UINT8,
@@ -27,38 +27,27 @@ public class AcousticOperation extends Message {
 	public OP op = OP.values()[0];
 
 	/**
-	 * The meaning of this field depends on the operation and is
-	 * explained in the operation's description.
+	 * Version of the entity.
 	 */
 	@FieldType(
 			type = IMCField.TYPE_PLAINTEXT
 	)
-	public String system = "";
+	public String version = "";
 
 	/**
-	 * The meaning of this field depends on the operation and is
-	 * explained in the operation's description.
+	 * Description of the entity.
 	 */
 	@FieldType(
-			type = IMCField.TYPE_FP32,
-			units = "m"
+			type = IMCField.TYPE_PLAINTEXT
 	)
-	public float range = 0f;
-
-	/**
-	 * Argument for message send ('MSG') requests.
-	 */
-	@FieldType(
-			type = IMCField.TYPE_MESSAGE
-	)
-	public Message msg = null;
+	public String description = "";
 
 	public String abbrev() {
-		return "AcousticOperation";
+		return "VersionInfo";
 	}
 
 	public int mgid() {
-		return 211;
+		return 2021;
 	}
 
 	public byte[] serializeFields() {
@@ -66,9 +55,8 @@ public class AcousticOperation extends Message {
 			ByteArrayOutputStream _data = new ByteArrayOutputStream();
 			DataOutputStream _out = new DataOutputStream(_data);
 			_out.writeByte((int)(op != null? op.value() : 0));
-			SerializationUtils.serializePlaintext(_out, system);
-			_out.writeFloat(range);
-			SerializationUtils.serializeInlineMsg(_out, msg);
+			SerializationUtils.serializePlaintext(_out, version);
+			SerializationUtils.serializePlaintext(_out, description);
 			return _data.toByteArray();
 		}
 		catch (IOException e) {
@@ -80,9 +68,8 @@ public class AcousticOperation extends Message {
 	public void deserializeFields(ByteBuffer buf) throws IOException {
 		try {
 			op = OP.valueOf(buf.get() & 0xFF);
-			system = SerializationUtils.deserializePlaintext(buf);
-			range = buf.getFloat();
-			msg = SerializationUtils.deserializeInlineMsg(buf);
+			version = SerializationUtils.deserializePlaintext(buf);
+			description = SerializationUtils.deserializePlaintext(buf);
 		}
 		catch (Exception e) {
 			throw new IOException(e);
@@ -90,45 +77,9 @@ public class AcousticOperation extends Message {
 	}
 
 	public enum OP {
-		AOP_ABORT(0l),
+		OP_REPLY(0l),
 
-		AOP_ABORT_IP(1l),
-
-		AOP_ABORT_TIMEOUT(2l),
-
-		AOP_ABORT_ACKED(3l),
-
-		AOP_RANGE(4l),
-
-		AOP_RANGE_IP(5l),
-
-		AOP_RANGE_TIMEOUT(6l),
-
-		AOP_RANGE_RECVED(7l),
-
-		AOP_BUSY(8l),
-
-		AOP_UNSUPPORTED(9l),
-
-		AOP_NO_TXD(10l),
-
-		AOP_MSG(11l),
-
-		AOP_MSG_QUEUED(12l),
-
-		AOP_MSG_IP(13l),
-
-		AOP_MSG_DONE(14l),
-
-		AOP_MSG_FAILURE(15l),
-
-		AOP_MSG_SHORT(16l),
-
-		AOP_REVERSE_RANGE(17l),
-
-		AOP_FORCED_ABORT(18l),
-
-		AOP_MSG_FRAGMENT(19l);
+		OP_QUERY(1l);
 
 		protected long value;
 
