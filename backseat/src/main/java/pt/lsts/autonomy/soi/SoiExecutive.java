@@ -173,6 +173,9 @@ public class SoiExecutive extends TimedFSM {
         double[] deadlinePosition = getPosition();
         setLocation(deadlinePosition[0], deadlinePosition[1]);
         setDepth(0);
+        setSpeed(speed, SpeedUnits.METERS_PS);
+
+        queueMessage(createStateReport(), 60, 5);
 
         print("Deadline reached. Surfacing to communicate.");
         txtMessages.add("INFO: Deadline reached.");
