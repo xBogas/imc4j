@@ -318,13 +318,18 @@ public class SoiExecutive extends TimedFSM {
                     reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
                     break;
                 }
+                if (paused) {
+                    reply.type = SoiCommand.TYPE.SOITYPE_ERROR;
+                    reply.info = "Execution is paused!";
+                    break;
+                }
+
+                salProfiler.clearSamples();
+                tempProfiler.clearSamples();
 
                 plan = Plan.parse(cmd.plan);
                 print("Received plan with settings: " + cmd.settings);
                 parseSettings(cmd.settings, reply);
-                if (paused) {
-                    setPaused(false);
-                }
 
                 // Reset only if no current deadline available
                 if (deadline == null) {
