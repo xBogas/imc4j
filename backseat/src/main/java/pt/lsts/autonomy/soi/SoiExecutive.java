@@ -1040,6 +1040,7 @@ public class SoiExecutive extends TimedFSM {
     public FSMState keepSurface(FollowRefState ref) {
         printFSMState();
         setDepth(0);
+        setSpeed(speed, SpeedUnits.METERS_PS);
 
         FSMState next = checkTransitions(ref);
         if (next != null) {
@@ -1073,6 +1074,12 @@ public class SoiExecutive extends TimedFSM {
         double cur_ang = Math.toDegrees(state.psi);
         // Angle difference to destination (degrees)
         double ang_diff = Math.abs(des_ang - cur_ang);
+
+        if (maxDepth == 0) {
+            setSpeed(speed, SpeedUnits.METERS_PS);
+            setDepth(0);
+            return keepSurfaceState;
+        }
 
         if (descRpm > 0) {
             setSpeed(descRpm, SpeedUnits.RPM);
