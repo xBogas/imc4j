@@ -4,16 +4,16 @@
 speed=1.0
 
 #Maximum Depth
-maxDepth=4.0
+maxDepth=0.0
 
 #Minimum Depth
 minDepth=0.0
 
 #Maximum Speed
-maxSpeed=1.5
+maxSpeed=1.1
 
 #Minimum Speed
-minSpeed=0.7
+minSpeed=0.9
 
 #DUNE Host Address
 hAddr=127.0.0.1
@@ -61,7 +61,7 @@ split=false
 useVP=false
 
 #Sample to send for meters covered
-space_resolution=120.0
+space_resolution=360.0
 
 #Depth tolerance to consider as reached
 depthTolerance=0.3
