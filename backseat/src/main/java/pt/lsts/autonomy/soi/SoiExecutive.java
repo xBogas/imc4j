@@ -23,6 +23,7 @@ import pt.lsts.imc4j.msg.SoiCommand;
 import pt.lsts.imc4j.msg.StateReport;
 import pt.lsts.imc4j.msg.Temperature;
 import pt.lsts.imc4j.msg.TextMessage;
+import pt.lsts.imc4j.msg.VersionInfo;
 import pt.lsts.imc4j.msg.TransmissionRequest;
 import pt.lsts.imc4j.msg.VehicleMedium;
 import pt.lsts.imc4j.msg.VerticalProfile;
@@ -61,6 +62,23 @@ public class SoiExecutive extends TimedFSM {
             tries = 0;
             this.max_tries = max_tries;
         }
+    }
+
+    public static String getVersion() {
+
+        String version = "Unknown";
+        try {
+            Properties gitProps = new Properties();
+            gitProps.load(SoiExecutive.class.getClassLoader().getResourceAsStream("backseat-git.info"));
+            String dirty = "true".equals(gitProps.getProperty("git.dirty")) ? ",dirty" : "";
+            version = gitProps.getProperty("git.branch") + " - (" + gitProps.getProperty("git.commit.id.abbrev") + dirty
+                    + ")";
+        }
+        catch (Exception e) {
+            System.out.println("Git info not available");
+        }
+
+        return version;
     }
 
     private static final double TWO_PI_RADS = Math.PI * 2.0;
@@ -324,9 +342,6 @@ public class SoiExecutive extends TimedFSM {
                     break;
                 }
 
-                salProfiler.clearSamples();
-                tempProfiler.clearSamples();
-
                 plan = Plan.parse(cmd.plan);
                 print("Received plan with settings: " + cmd.settings);
                 parseSettings(cmd.settings, reply);
@@ -414,6 +429,7 @@ public class SoiExecutive extends TimedFSM {
 
             case SOICMD_RESUME:
                 print("CMD: Resume execution!");
+                sendVersionInfo();
                 queueMessage(createStateReport(), 30, 3);
 //                resetDeadline();
                 reply.type = SoiCommand.TYPE.SOITYPE_SUCCESS;
@@ -634,6 +650,21 @@ public class SoiExecutive extends TimedFSM {
         tempProfiler.setSample(get(EstimatedState.class), temp);
     }
 
+    @Consume
+    public void on(VersionInfo version) {
+        if (version.op != VersionInfo.OP.OP_QUERY) {
+            return;
+        }
+        sendVersionInfo();
+    }
+
+    private void sendVersionInfo() {
+        VersionInfo vi = new VersionInfo();
+        vi.op = VersionInfo.OP.OP_REPLY;
+        vi.version = getVersion();
+        trySend(vi);
+    }
+
     public boolean invalidSalinity(Salinity sal) {
         if (sal == null) {
             return true;
@@ -762,6 +793,10 @@ public class SoiExecutive extends TimedFSM {
                 wpt.getLatitude(), wpt.getLongitude());
     }
 
+    private boolean arrivedWaypoint(int idx) {
+        return arrivedWaypoint(plan.waypoint(idx));
+    }
+
     private boolean arrivedWaypoint(Waypoint wpt) {
         return distanceWaypoint(wpt) < wptDst;
     }
@@ -801,7 +836,7 @@ public class SoiExecutive extends TimedFSM {
      *
      * @return The next {@link FSMState} to transition to, or {@code null} if no transition is required.
      */
-    private FSMState checkTransitions(FollowRefState ref) {
+    private FSMState checkTransitions() {
         secs_no_comms++;
         updateDistanceTraveled();
 
@@ -821,15 +856,16 @@ public class SoiExecutive extends TimedFSM {
             return getGPSState;
         }
 
-        if (arrivedXY() && ref.state != FollowRefState.STATE.FR_HOVER) {
-            print("Should be hovering by now!! forcing update ...");
-            updateSpeed();
-        }
-
-        if (hasPassedWaypoint(wpt_index)) {
+        if (hasPassedWaypoint(wpt_index) || arrivedWaypoint(wpt_index)) {
             print("Passed waypoint " + wpt_index);
             return onWaypointState;
         }
+
+        // hack when we want to hover and DUNE did not signal transition!
+//        if (arrivedXY() && ref.state != FollowRefState.STATE.FR_HOVER) {
+//            print("Should be hovering by now!! forcing update ...");
+//            updateSpeed();
+//        }
 
         return null;
     }
@@ -971,7 +1007,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(maxDepth);
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1013,7 +1049,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(minDepth);
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1042,7 +1078,7 @@ public class SoiExecutive extends TimedFSM {
         setDepth(0);
         setSpeed(speed, SpeedUnits.METERS_PS);
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1062,7 +1098,7 @@ public class SoiExecutive extends TimedFSM {
         EstimatedState state = get(EstimatedState.class);
         double[] pos = WGS84Utilities.toLatLonDepth(state);
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1108,7 +1144,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         double[] pos = getPosition();
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1221,7 +1257,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
         setDepth(0);
 
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1341,7 +1377,7 @@ public class SoiExecutive extends TimedFSM {
         printFSMState();
 
         setDepth(0);
-        FSMState next = checkTransitions(ref);
+        FSMState next = checkTransitions();
         if (next != null) {
             return next;
         }
@@ -1435,6 +1471,10 @@ public class SoiExecutive extends TimedFSM {
     private void resetDeadline() {
         distanceTraveled = 0;
         lastPosition = null;
+
+        salProfiler.clearSamples();
+        tempProfiler.clearSamples();
+
         deadline = new Date(System.currentTimeMillis() + (long) timeout * 60 * 1000);
         String txtDeadline = "INFO: Execution will end by " + deadline;
         txtMessages.add(txtDeadline);
@@ -1529,6 +1569,7 @@ public class SoiExecutive extends TimedFSM {
 
         SoiExecutive tracker = PojoConfig.create(SoiExecutive.class, props);
 
+        System.out.println("Version " + SoiExecutive.getVersion() + " starting up...");
         System.out.println("Executive started with settings:");
         for (Field f : tracker.getClass().getDeclaredFields()) {
             Parameter p = f.getAnnotation(Parameter.class);
