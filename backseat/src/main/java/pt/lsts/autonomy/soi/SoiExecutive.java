@@ -825,7 +825,8 @@ public class SoiExecutive extends TimedFSM {
         }
 
         double currBearing = calculateBearing(start_deg, end_deg);
-        return Math.abs(currBearing - desiredBearing) > 90;
+        double bearingDiff = ((currBearing - desiredBearing) + 540) % 360 - 180;
+        return Math.abs(bearingDiff) > 90;
     }
 
     /**
