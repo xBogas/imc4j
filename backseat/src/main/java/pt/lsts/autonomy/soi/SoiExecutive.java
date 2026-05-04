@@ -182,7 +182,7 @@ public class SoiExecutive extends TimedFSM {
     public SoiExecutive() {
         setPlanName(SOI_PLAN_ID);
         deadline = null;
-        state = idleAtSurfaceState;
+        setInitialState(idleAtSurfaceState);
     }
 
     @Override
@@ -226,7 +226,7 @@ public class SoiExecutive extends TimedFSM {
 
         plan = null;
         wpt_index = 0;
-        state = endOfDeadlineState;
+        setState(endOfDeadlineState);
         deadline = null;
         super.update(ref);
     }
@@ -272,7 +272,7 @@ public class SoiExecutive extends TimedFSM {
      * @param pControl A {@link PlanControl} message
      */
     @Consume
-    public final void on(PlanControl pControl) {
+    public final synchronized void on(PlanControl pControl) {
         if (pControl.op == PlanControl.OP.PC_START && pControl.type == PlanControl.TYPE.PC_FAILURE) {
             if (pControl.plan_id.equals(getPlanName())) {
                 // Error during execution!
@@ -280,12 +280,12 @@ public class SoiExecutive extends TimedFSM {
                 printError(err);
                 txtMessages.add("ERROR: " + pControl.info);
                 print("Ascending for report");
-                state = criticalErrorState;
+                setState(criticalErrorState);
             }
         }
 
         if (pControl.op == PlanControl.OP.PC_STOP && pControl.type == PlanControl.TYPE.PC_SUCCESS) {
-            state = idleAtSurfaceState;
+            setState(idleAtSurfaceState);
         }
     }
 
@@ -314,7 +314,7 @@ public class SoiExecutive extends TimedFSM {
      * @param cmd The received command
      */
     @Consume
-    public final void on(SoiCommand cmd) {
+    public final synchronized void on(SoiCommand cmd) {
         if (cmd.type != SoiCommand.TYPE.SOITYPE_REQUEST) {
             return;
         }
@@ -476,7 +476,7 @@ public class SoiExecutive extends TimedFSM {
         }
 
         if (nextState != null) {
-            state = nextState;
+            setState(nextState);
         }
     }
 
@@ -794,7 +794,13 @@ public class SoiExecutive extends TimedFSM {
     }
 
     private boolean arrivedWaypoint(int idx) {
-        return arrivedWaypoint(plan.waypoint(idx));
+
+        boolean arrived = arrivedWaypoint(plan.waypoint(idx));
+        if (arrived) {
+            print("Reached waypoint " + idx + " (" + distanceWaypoint(idx) + " m) - " + plan.waypoint(idx));
+        }
+
+        return arrived;
     }
 
     private boolean arrivedWaypoint(Waypoint wpt) {
@@ -1206,7 +1212,6 @@ public class SoiExecutive extends TimedFSM {
 
         count_secs++;
         return communicateState;
-
     }
 
     public FSMState surfaceWaypoint(FollowRefState ref) {
@@ -1295,6 +1300,15 @@ public class SoiExecutive extends TimedFSM {
         setDepth(0);
         count_secs = 0;
         return reportErrorsState;
+    }
+
+    protected void sendAndQueue(Message m, int ttl, int tries) {
+        MessageRequest req = new MessageRequest(m, ttl, tries);
+        List<Integer> reqIds = sendViaIridium(m, ttl);
+        req.tries++;
+        for (Integer reqId : reqIds) {
+            pendingTransmissions.put(reqId, req);
+        }
     }
 
     protected void queueMessages(Collection<? extends Message> c, int ttl, int tries) {

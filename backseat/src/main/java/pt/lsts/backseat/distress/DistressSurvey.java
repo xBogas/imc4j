@@ -268,7 +268,7 @@ public class DistressSurvey extends TimedFSM {
             stateToReturnTo = this::loiterUnderwaterState;
             goSurfaceTask = GoSurfaceTaskEnum.PREEMPTIVE_OP;
         }
-        state = this::goSurfaceState;
+        setInitialState(this::goSurfaceState);
     }
 
     @Override // For now let us place here because not completely test the implications

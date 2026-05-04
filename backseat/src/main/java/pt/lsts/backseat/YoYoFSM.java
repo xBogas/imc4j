@@ -27,7 +27,7 @@ public class YoYoFSM extends FSMController {
 		setSpeed(speed, SpeedUnits.METERS_PS);
 		setDepth(0);
 		setLoiterRadius(0);
-		state = this::descending;
+        setInitialState(this::descending);
 	}
 	
 	public FSMState descending(FollowRefState ref) {

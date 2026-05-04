@@ -69,7 +69,7 @@ public class DripExecutive extends SoiExecutive {
 	public DripExecutive() {
 		setPlanName(PLAN_ID);
 		setDeadline(new Date(System.currentTimeMillis() + timeout * 60 * 1000));
-		state = this::idleAtSurface;
+        setInitialState(this::idleAtSurface);
 	}
 	
 	@Override

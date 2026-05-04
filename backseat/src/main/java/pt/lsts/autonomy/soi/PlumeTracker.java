@@ -28,7 +28,7 @@ public class PlumeTracker extends TimedFSM {
 	private double angle;
 	
 	public PlumeTracker() {
-		state = this::init;
+        setInitialState(this::init);
 	}
 	
 	FSMState init(FollowRefState state) {

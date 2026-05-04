@@ -105,7 +105,7 @@ public class RiverPlumeTracker extends TimedFSM {
 	int secs_underwater = 0;
 	
 	public RiverPlumeTracker() {
-		state = this::init;
+        setInitialState(this::init);
 	}
 
 	public FSMState init(FollowRefState state) {
